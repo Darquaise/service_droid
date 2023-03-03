@@ -1,1 +1,1 @@
-from .time import dt2text
+from .time import dt2text, dt_now_as_text
