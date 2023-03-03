@@ -6,4 +6,4 @@ def dt2text(dt: datetime):
 
 
 def dt_now_as_text():
-    dt2text(datetime.utcnow())
+    return dt2text(datetime.utcnow())
