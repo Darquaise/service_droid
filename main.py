@@ -1,13 +1,13 @@
 import asyncio
 import discord
 
-from bot import GoldenBot
+from classes.bot import ServiceDroid
 from cogs.custom import CustomCog
 from cogs.settings import SettingsCog
 
 
 intents = discord.Intents.all()
-bot = GoldenBot(command_prefix="!", help_command=None, debug_guilds=[576380164250927124], intents=intents)
+bot = ServiceDroid(command_prefix="!", help_command=None, debug_guilds=[576380164250927124], intents=intents)
 
 
 with open("token", "r") as f:

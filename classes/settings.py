@@ -1,13 +1,18 @@
-from discord.ext import bridge
+import os
 from datetime import timedelta
 
 from ios import read_json, write_json
+from converters import dt_now_as_text
 
 
 class Settings:
     def __init__(self, path: str):
-        data = read_json(path)
+        print(f"[{dt_now_as_text()}] loading settings...")
         self.path = path
+        if not os.path.isfile(path):
+            self.create_file()
+
+        data = read_json(path)
 
         # active
         self.active = data["active"]
@@ -50,9 +55,15 @@ class Settings:
             ]
         }
         write_json(self.path, data)
+        print(f"[{dt_now_as_text()}] settings updated")
 
+    def create_file(self):
+        print(f"[{dt_now_as_text()}] No settings found, creating new ones...")
+        data = {
+            "active": True,
+            "cooldown": 3,
+            "cooldown_type": "hours",
+            "channels": []
+        }
 
-class GoldenBot(bridge.Bot):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.settings = Settings("settings.json")
+        write_json(self.path, data)

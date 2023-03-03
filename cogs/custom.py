@@ -2,11 +2,11 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 
-from bot import GoldenBot
+from classes.bot import ServiceDroid
 
 
 class CustomCog(discord.Cog):
-    def __init__(self, bot: GoldenBot):
+    def __init__(self, bot: ServiceDroid):
         self.bot = bot
         self.cooldowns: dict = {}
 

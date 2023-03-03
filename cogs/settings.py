@@ -1,12 +1,12 @@
 import discord
 
-from bot import GoldenBot
+from classes.bot import ServiceDroid
 
 time_units = ["days", "hours", "minutes", "seconds"]
 
 
 class SettingsCog(discord.Cog):
-    def __init__(self, bot: GoldenBot):
+    def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
     @discord.slash_command(name="turn_lfg_on_or_off", description="Turn Looking for game requests on or off")
