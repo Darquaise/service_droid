@@ -1,9 +1,8 @@
-import asyncio
 import discord
 
 from classes.bot import ServiceDroid
-from cogs.custom import CustomCog
-from cogs.settings import SettingsCog
+
+from cogs.startup import StartupCog
 
 
 intents = discord.Intents.all()
@@ -14,10 +13,5 @@ with open("token", "r") as f:
     token = f.read()
 
 
-async def startup():
-    bot.add_cog(CustomCog(bot))
-    bot.add_cog(SettingsCog(bot))
-    await bot.start(token=token)
-
-
-asyncio.run(startup())
+bot.add_cog(StartupCog(bot))
+bot.run(token=token)
