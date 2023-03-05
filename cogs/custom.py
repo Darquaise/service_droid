@@ -10,14 +10,19 @@ class CustomCog(discord.Cog):
         self.bot = bot
         self.cooldowns: dict = {}
 
+    def get_roles(self, channel: discord.TextChannel):
+        for role_id in self.bot.settings.allowed_channels[channel.id]:
+            role = channel.guild.get_role(role_id)
+            if not role:
+                return role_id
+            return role.mention
+
     @commands.command(name="lfg", aliases=["lgf"])
     async def lfg(self, ctx: commands.Context, *, message: str = None):
         # stop if not in the right channel
         if ctx.channel.id not in self.bot.settings.allowed_channels.keys():
             await ctx.message.delete()
             return
-
-        lfg_roles = [ctx.guild.get_role(x).mention for x in self.bot.settings.allowed_channels[ctx.channel.id]]
 
         # check for cooldown and return if still on cooldown
         if ctx.author.id in self.cooldowns:
@@ -34,7 +39,7 @@ class CustomCog(discord.Cog):
         self.cooldowns[ctx.author.id] = datetime.utcnow()
 
         # send message with additional message if given
-        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(lfg_roles)}\n"
+        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(self.get_roles(ctx.channel))}\n"
         if message:
             await ctx.send(lfg_msg + discord.utils.escape_mentions(message))
         else:
@@ -52,8 +57,6 @@ class CustomCog(discord.Cog):
                 ephemeral=True
             )
 
-        lfg_roles = [ctx.guild.get_role(x).mention for x in self.bot.settings.allowed_channels[ctx.channel.id]]
-
         if ctx.author.id in self.cooldowns:
             next_use = self.cooldowns[ctx.author.id] + self.bot.settings.cooldown
             if next_use > datetime.utcnow():
@@ -68,7 +71,7 @@ class CustomCog(discord.Cog):
         # create a reply so it won't time out
         msg = await ctx.respond("Your invite will be sent shortly after", ephemeral=True)
 
-        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(lfg_roles)}\n"
+        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(self.get_roles(ctx.channel))}\n"
         if message:
             await ctx.send(lfg_msg + discord.utils.escape_mentions(message))
         else:
