@@ -11,7 +11,7 @@ class CustomCog(discord.Cog):
         self.bot = bot
         self.cooldowns: dict = {}
 
-    async def get_roles(self, channel: discord.TextChannel) -> list[str]:
+    async def get_roles(self, channel) -> list[str]:
         result = []
         for role_id in self.bot.settings.allowed_channels[channel.id]:
             role = channel.guild.get_role(role_id)
