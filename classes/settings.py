@@ -14,6 +14,9 @@ class Settings:
 
         data = read_json(path)
 
+        # debug
+        self.debug = data["debug"]
+
         # active
         self.active = data["active"]
 
@@ -44,6 +47,7 @@ class Settings:
 
     def update_settings(self):
         data = {
+            "debug": self.debug,
             "active": self.active,
             "cooldown": self._cooldown,
             "cooldown_type": self._cooldown_type,
@@ -60,6 +64,7 @@ class Settings:
     def create_file(self):
         print(f"[{dt_now_as_text()}] No settings found, creating new ones...")
         data = {
+            "debug": False,
             "active": True,
             "cooldown": 3,
             "cooldown_type": "hours",

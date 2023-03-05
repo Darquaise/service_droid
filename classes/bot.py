@@ -4,6 +4,7 @@ from .settings import Settings
 
 
 class ServiceDroid(bridge.Bot):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, settings: Settings = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.settings = Settings("settings.json")
+
+        self.settings = settings if settings else Settings("settings.json")
