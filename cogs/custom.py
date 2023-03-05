@@ -63,6 +63,9 @@ class CustomCog(discord.Cog):
 
     @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(self, ctx: discord.ApplicationContext, message: str = None):
+        # fix for linter not liking properties
+        ctx.author: discord.Member  # type: ignore
+
         # stop if not in the right channel
         if ctx.channel.id not in self.bot.settings.allowed_channels:
             return await ctx.respond(
