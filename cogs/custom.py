@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 
-from classes.bot import ServiceDroid
+from classes import ServiceDroid
+from converters import dt_now_as_text
 
 
 class CustomCog(discord.Cog):
@@ -10,12 +11,24 @@ class CustomCog(discord.Cog):
         self.bot = bot
         self.cooldowns: dict = {}
 
-    def get_roles(self, channel: discord.TextChannel):
+    async def get_roles(self, channel: discord.TextChannel) -> list[str]:
+        result = []
         for role_id in self.bot.settings.allowed_channels[channel.id]:
             role = channel.guild.get_role(role_id)
             if not role:
-                return role_id
-            return role.mention
+                print(f"[{dt_now_as_text()}] role not found")
+                roles = await channel.guild.fetch_roles()
+                for role in roles:
+                    if role.id == role_id:
+                        print("* found with api-call")
+                        result.append(role.mention)
+                        continue
+
+                print("* not found and deleted")
+                self.bot.settings.remove_role(channel.id, role_id)
+            result.append(role.mention)
+
+        return result
 
     @commands.command(name="lfg", aliases=["lgf"])
     async def lfg(self, ctx: commands.Context, *, message: str = None):
@@ -39,7 +52,7 @@ class CustomCog(discord.Cog):
         self.cooldowns[ctx.author.id] = datetime.utcnow()
 
         # send message with additional message if given
-        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(self.get_roles(ctx.channel))}\n"
+        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(await self.get_roles(ctx.channel))}\n"
         if message:
             await ctx.send(lfg_msg + discord.utils.escape_mentions(message))
         else:
@@ -71,7 +84,7 @@ class CustomCog(discord.Cog):
         # create a reply so it won't time out
         msg = await ctx.respond("Your invite will be sent shortly after", ephemeral=True)
 
-        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(self.get_roles(ctx.channel))}\n"
+        lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(await self.get_roles(ctx.channel))}\n"
         if message:
             await ctx.send(lfg_msg + discord.utils.escape_mentions(message))
         else:

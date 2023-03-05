@@ -45,6 +45,15 @@ class Settings:
 
         return time
 
+    def remove_role(self, channel_id: int, role_id: int):
+        if channel_id in self.allowed_channels and role_id in self.allowed_channels[channel_id]:
+            if len(self.allowed_channels[channel_id]) > 1:
+                self.allowed_channels[channel_id].remove(role_id)
+            else:
+                del self.allowed_channels[channel_id]
+
+            self.update_settings()
+
     def update_settings(self):
         data = {
             "debug": self.debug,
