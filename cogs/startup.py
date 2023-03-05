@@ -6,6 +6,7 @@ from converters.time import dt_now_as_text
 
 from cogs.custom import CustomCog
 from cogs.settings import SettingsCog
+from cogs.dev import DevelopmentCog
 
 
 class StartupCog(commands.Cog):
@@ -30,6 +31,7 @@ class StartupCog(commands.Cog):
         print(f'[{dt_now_as_text()}] loading cogs...')
         self.bot.add_cog(CustomCog(self.bot))
         self.bot.add_cog(SettingsCog(self.bot))
+        self.bot.add_cog(DevelopmentCog(self.bot))
         print(f'[{dt_now_as_text()}] cogs loaded')
 
         print(f'[{dt_now_as_text()}] registering slash commands...')
