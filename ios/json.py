@@ -7,6 +7,6 @@ def read_json(path: str):
     return data
 
 
-def write_json(path: str, data: dict):
+def write_json(path: str, data: dict | list):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
