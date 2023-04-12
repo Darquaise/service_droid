@@ -89,3 +89,7 @@ class SettingsCog(discord.Cog):
                 f"{channel.mention} is no lfg channel.",
                 ephemeral=True
             )
+
+
+def setup(bot):
+    bot.add_cog(SettingsCog(bot))

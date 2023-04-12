@@ -81,8 +81,7 @@ class DevelopmentCog(commands.Cog):
 
         await ctx.respond(f"`cogs.{extension}` has been loaded", ephemeral=True)
 
-    @commands.slash_command(name='unload', description='Unload a Bots Cog')
-    @discord.default_permissions(administrator=True)
+    @commands.slash_command(name='unload', description='Unload a Bots Cog', debug_guilds=[576380164250927124])
     async def unload_cog(self, ctx: discord.ApplicationContext, extension):
         if extension == '*':
             for n in os.listdir('./cogs'):
@@ -99,3 +98,7 @@ class DevelopmentCog(commands.Cog):
             self.bot.unload_extension(f'cogs.{extension}')
 
         await ctx.respond(f"`cogs.{extension}` has been unloaded", ephemeral=True)
+
+
+def setup(bot):
+    bot.add_cog(DevelopmentCog(bot))

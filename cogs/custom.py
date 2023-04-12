@@ -120,3 +120,7 @@ class CustomCog(discord.Cog):
                 "All cooldowns have been reset!",
                 ephemeral=True
             )
+
+
+def setup(bot):
+    bot.add_cog(CustomCog(bot))
