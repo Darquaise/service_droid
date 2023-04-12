@@ -1,9 +1,10 @@
-from discord.ext import bridge
+import discord
+from discord.ext import commands
 
 from .settings import Settings
 
 
-class ServiceDroid(bridge.Bot):
+class ServiceDroid(commands.Bot):
     def __init__(self, settings: Settings = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
