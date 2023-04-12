@@ -1,8 +1,9 @@
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid
+from classes import ServiceDroid, Guild
 from converters.time import dt_now_as_text
+from ios import read_json
 
 from cogs.custom import CustomCog
 from cogs.settings import SettingsCog
@@ -27,6 +28,16 @@ class StartupCog(commands.Cog):
         await self.bot.change_presence(activity=activity)
 
         # setup
+        # --> load guilds
+        guilds_data = self.bot.settings.get_guilds_data()
+        print(guilds_data)
+        for guild in self.bot.guilds:
+            if str(guild.id) in guilds_data:  # string because json makes keys strings
+                Guild.from_json(guild, guilds_data[str(guild.id)])
+            else:
+                Guild(guild, {}, {})
+        self.bot.settings.update_guilds()
+
         # --> load cogs
         print(f'[{dt_now_as_text()}] loading cogs...')
         self.bot.add_cog(CustomCog(self.bot))

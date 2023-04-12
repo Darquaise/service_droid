@@ -1,6 +1,6 @@
 import discord
 
-from classes.bot import ServiceDroid
+from classes import ServiceDroid, ApplicationContext, transform_time, LFGNotAllowed
 
 time_units = ["days", "hours", "minutes", "seconds"]
 
@@ -11,21 +11,34 @@ class SettingsCog(discord.Cog):
 
     @discord.slash_command(name="turn_lfg_on_or_off", description="Turn Looking for game requests on or off")
     @discord.default_permissions(administrator=True)
-    async def turn_lfg(self, ctx: discord.ApplicationContext):
+    async def turn_lfg(self, ctx: ApplicationContext):
         self.bot.settings.active = not self.bot.settings.active
         self.bot.settings.update_settings()
         await ctx.respond(f"Looking for game command has be turned {'on' if self.bot.settings.active else 'off'}")
 
-    @discord.slash_command(description="Change the amount of cooldown after a looking for game request")
+    @discord.slash_command(description="Change the amount of cooldown a role has after a looking for game request")
     @discord.default_permissions(administrator=True)
-    async def setting_cooldown(
+    async def setting_set_cooldown(
             self,
-            ctx: discord.ApplicationContext,
+            ctx: ApplicationContext,
+            role: discord.Role,
             time_unit: discord.Option(description="Of what kind the given time will be", choices=time_units),
             time_amount: discord.Option(name="amount", description="The amount of time", input_type=int)
     ):
-        old_time = self.bot.settings.cooldown
-        new_time = self.bot.settings.transform_time(time_amount, time_unit)
+        # for some reason this is a string and not int
+        time_amount = int(time_amount)
+
+        if role.id in ctx.g.lfg_roles:
+            old_time = ctx.g.lfg_roles[role.id].cooldown
+        else:
+            old_time = None
+        new_time = transform_time(time_amount, time_unit)
+
+        if not new_time:
+            return await ctx.respond(
+                "This is not a valid time unit, the following are available: `days`, `hours`, `minutes`, `seconds`",
+                ephemeral=True
+            )
 
         if new_time == old_time:
             await ctx.respond(
@@ -33,12 +46,19 @@ class SettingsCog(discord.Cog):
                 ephemeral=True
             )
         else:
-            self.bot.settings.cooldown = new_time
-            self.bot.settings.update_settings()
+            ctx.g.set_cooldown(role, time_amount, time_unit)
+            if isinstance(new_time, LFGNotAllowed):
+                self.bot.settings.update_guilds()
+                return await ctx.respond(
+                    f"{role.mention} now can't use LFG commands anymore as long as this role is the highest LFG role the member has.",
+                    ephemeral=True
+                )
+
             await ctx.respond(
-                f"The cooldown has been set to {time_amount} {time_unit}.",
+                f"The cooldown for {role.mention} has been set to {time_amount} {time_unit}.",
                 ephemeral=True
             )
+            self.bot.settings.update_guilds()
 
     @discord.slash_command(
         description="Add roles to a channel for lfg. If the channel wasn't a lfg channel before it will be made one."
@@ -46,37 +66,36 @@ class SettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_add_lfg(
             self,
-            ctx: discord.ApplicationContext,
+            ctx: ApplicationContext,
             channel: discord.TextChannel,
             role: discord.Role
     ):
-        allowed_channels = self.bot.settings.allowed_channels
-        if channel.id in allowed_channels.keys():
-            if role.id in allowed_channels[channel.id]:
-                await ctx.respond(
-                    f"{role.mention} is already being pinged on lfg in {channel.mention}",
+        if channel.id in ctx.g.lfg_channels.keys():
+            if role in ctx.lfg.roles:
+                return await ctx.respond(
+                    f"{role.mention} is already being mentioned on LFG in {channel.mention}",
                     ephemeral=True
                 )
-                return
-
-            allowed_channels[channel.id].append(role.id)
+            ctx.g.lfg_channels[channel.id].roles.append(role)
             await ctx.respond(
                 f"{role.mention} has been added to {channel.mention}\n"
                 "Roles now being pinged in this channel: "
-                f"{' '.join([ctx.guild.get_role(x).mention for x in allowed_channels[channel.id]])}",
+                f"{' '.join(ctx.lfg.roles_str)}",
                 ephemeral=True
             )
         else:
-            allowed_channels[channel.id] = [role.id]
+            ctx.g.add_lfg_channel(channel, [role])
             await ctx.respond(
-                f"{channel.mention} is now a lfg channel with the {role.mention} role being pinged.",
+                f"{channel.mention} is now a LFG channel with the {role.mention} role being mentioned.\n"
+                f"To add more use the same command with the same channel selected, but a different role.",
                 ephemeral=True
             )
-        self.bot.settings.update_settings()
+
+        self.bot.settings.update_guilds()
 
     @discord.slash_command(description="Remove lfg channels.")
     @discord.default_permissions(administrator=True)
-    async def setting_remove_lfg(self, ctx: discord.ApplicationContext, channel: discord.TextChannel):
+    async def setting_remove_lfg(self, ctx: ApplicationContext, channel: discord.TextChannel):
         if channel.id in self.bot.settings.allowed_channels.keys():
             del self.bot.settings.allowed_channels[channel.id]
             self.bot.settings.update_settings()
@@ -89,6 +108,8 @@ class SettingsCog(discord.Cog):
                 f"{channel.mention} is no lfg channel.",
                 ephemeral=True
             )
+
+        self.bot.settings.update_guilds()
 
 
 def setup(bot):
