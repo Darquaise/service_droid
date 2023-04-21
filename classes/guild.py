@@ -1,6 +1,6 @@
 from __future__ import annotations
 import discord
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from .base.guildbase import GuildBase
 from .lfg import LFGNotAllowed, TrustedHost, LFGChannel
@@ -22,7 +22,7 @@ class Guild(GuildBase):
         return None
 
     def get_member_cooldown(self, member: discord.Member) -> timedelta | type[LFGNotAllowed]:
-        for role in member.roles:
+        for role in reversed(member.roles):
             result = self.get_role_cooldown(role)
             if result:
                 return result
