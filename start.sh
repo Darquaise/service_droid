@@ -1,3 +1,3 @@
 #!/bin/bash
 
-screen -AmdS service_droid /home/bot/bots/service_droid/test.sh
+screen -AmdS service_droid /home/bot/bots/service_droid/start.sh
