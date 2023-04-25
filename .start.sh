@@ -1,4 +1,4 @@
 #!/bin/bash
 
-source ./.venv/bin/activate
+source /home/bot/bots/service_droid/.venv/bin/activate
 python3 main.py
