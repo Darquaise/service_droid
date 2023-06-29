@@ -18,11 +18,6 @@ bot = ServiceDroid(
     settings=settings
 )
 
-
-# get token from token file
-with open("token", "r") as f:
-    token = f.read()
-
 # preload startup cog and start bot
 bot.add_cog(StartupCog(bot))
-bot.run(token=token)
+bot.run(token=settings.credentials.token)

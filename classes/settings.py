@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 import os
 
 from ios import read_json, write_json
@@ -5,8 +7,51 @@ from converters import dt_now_as_text
 from .guild import Guild
 
 
+class SettingData(TypedDict):
+    debug: bool
+    active: bool
+    guilds_path: str
+    credentials_path: str
+    profile: str
+
+
+class CredentialData(TypedDict):
+    token: str
+    client_id: str
+    client_secret: str
+    redirect_uri: str
+
+
+class Credentials:
+    path: str
+    profile: str
+    token: str
+    client_id: int
+    client_secret: str
+    redirect_uri: str
+
+    def __init__(self, path: str, profile: str):
+        full_data: CredentialData = read_json(path)
+
+        if profile not in full_data:
+            raise Exception("Profile not found!")
+
+        data = full_data[profile]
+
+        self.path = path
+        self.profile = profile
+        self.token = data['token']
+        self.client_id = int(data['client_id'])
+        self.client_secret = data['client_secret']
+        self.redirect_uri = data['redirect_uri']
+
+
 class Settings:
-    __slots__ = "path", "debug", "active", "guilds_path"
+    path: str
+    debug: bool
+    active: bool
+    guilds_path: str
+    credentials: Credentials
 
     def __init__(self, path: str):
         print(f"[{dt_now_as_text()}] loading settings...")
@@ -14,11 +59,19 @@ class Settings:
         if not os.path.isfile(path):
             self.create_settings_file()
 
-        data = read_json(path)
+        data: SettingData = read_json(path)
 
         self.guilds_path = data['guilds_path']
         if not os.path.isfile(self.guilds_path):
             self.create_guilds_file()
+
+        credentials_path = data['credentials_path']
+        if not os.path.isfile(credentials_path):
+            raise FileNotFoundError("Credentials not found")
+
+        profile = data['profile']
+
+        self.credentials = Credentials(credentials_path, profile)
 
         # debug
         self.debug = data["debug"]
@@ -30,10 +83,12 @@ class Settings:
         return read_json(self.guilds_path)
 
     def update_settings(self):
-        data = {
+        data: SettingData = {
             "debug": self.debug,
             "active": self.active,
-            "guilds_path": self.guilds_path
+            "guilds_path": self.guilds_path,
+            "credentials_path": self.credentials.path,
+            "profile": self.credentials.profile
         }
         write_json(self.path, data)
         print(f"[{dt_now_as_text()}] settings updated")
@@ -47,10 +102,12 @@ class Settings:
 
     def create_settings_file(self):
         print(f"[{dt_now_as_text()}] No settings found, creating new ones...")
-        data = {
+        data: SettingData = {
             "debug": False,
             "active": True,
-            "guilds_path": "guilds.json"
+            "guilds_path": "guilds.json",
+            "credentials_path": "credentials.json",
+            "profile": "beta"
         }
 
         write_json(self.path, data)
