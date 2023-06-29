@@ -31,12 +31,12 @@ class Credentials:
     redirect_uri: str
 
     def __init__(self, path: str, profile: str):
-        full_data: CredentialData = read_json(path)
+        full_data = read_json(path)
 
         if profile not in full_data:
             raise Exception("Profile not found!")
 
-        data = full_data[profile]
+        data: CredentialData = full_data[profile]
 
         self.path = path
         self.profile = profile
