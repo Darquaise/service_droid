@@ -1,23 +1,27 @@
-import discord
+import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
 
-from classes.settings import Settings
-from classes.bot import ServiceDroid
+from classes import Settings
+from routers import CustomFastAPI, create_app, add_to_app, user_api, dev_api
 
-from cogs.startup import StartupCog
-
-
-intents = discord.Intents.all()
+# init settings
 settings = Settings("settings.json")
 
-bot = ServiceDroid(
-    command_prefix="!",
-    case_insensitive=True,
-    help_command=None,
-    debug_guilds=[576380164250927124] if settings.debug else None,
-    intents=intents,
-    settings=settings
+# FastAPI setup
+app: CustomFastAPI = create_app(settings)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.credentials.origins,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*']
 )
+app.include_router(user_api)
+app.include_router(dev_api)
 
-# preload startup cog and start bot
-bot.add_cog(StartupCog(bot))
-bot.run(token=settings.credentials.token)
+server = uvicorn.Server(uvicorn.Config(app))
+
+add_to_app(app, server)
+
+if __name__ == "__main__":
+    server.run()

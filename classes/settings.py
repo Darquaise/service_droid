@@ -20,6 +20,7 @@ class CredentialData(TypedDict):
     client_id: str
     client_secret: str
     redirect_uri: str
+    origins: list[str]
 
 
 class Credentials:
@@ -29,6 +30,7 @@ class Credentials:
     client_id: int
     client_secret: str
     redirect_uri: str
+    origins: list[str]
 
     def __init__(self, path: str, profile: str):
         full_data = read_json(path)
@@ -44,6 +46,7 @@ class Credentials:
         self.client_id = int(data['client_id'])
         self.client_secret = data['client_secret']
         self.redirect_uri = data['redirect_uri']
+        self.origins = data['origins']
 
 
 class Settings:
