@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from classes import Settings, Credentials
 
-from .typing_classes import TokenResponse, TokenGrantPayload, User
+from .typing_classes import TokenResponse, TokenGrantPayload, User, GuildPreview
 from .token_db import TokenDB
 from .exceptions import Unauthorized, RateLimited, InvalidCode
 
@@ -84,6 +84,10 @@ async def redeem_code(code: str) -> TokenResponse:
 
 async def get_user_from_token(token: str) -> User:
     return User(**(await request('/users/@me', token)))
+
+
+async def get_user_guilds_from_token(token: str) -> list[GuildPreview]:
+    return await request('/users/@me/guilds', token)
 
 
 async def generate_token(token_data: TokenResponse = Depends(redeem_code)):
