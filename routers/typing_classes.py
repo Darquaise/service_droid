@@ -34,7 +34,7 @@ class User(BaseModel):
             self.avatar_url = "https://cdn.discordapp.com/embed/avatars/1.png"
 
 
-class GuildPreview(BaseModel):
+class GuildPreview(TypedDict):
     id: str
     name: str
     icon: str | None
