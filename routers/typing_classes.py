@@ -17,7 +17,6 @@ class User(BaseModel):
     username: str
     discriminator: str
     avatar: str | None
-    avatar_url: str | None
     locale: str
     email: str | None
     bot: bool | None
@@ -29,9 +28,9 @@ class User(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         if self.avatar:
-            self.avatar_url = f"https://cdn.discordapp.com/avatars/{self.id}/{self.avatar}.png"
+            self.avatar = f"https://cdn.discordapp.com/avatars/{self.id}/{self.avatar}.png"
         else:
-            self.avatar_url = "https://cdn.discordapp.com/embed/avatars/1.png"
+            self.avatar = "https://cdn.discordapp.com/embed/avatars/1.png"
 
 
 class GuildPreview(TypedDict):
