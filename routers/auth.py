@@ -127,7 +127,7 @@ async def get_token_from_user_id(user_id: int = Depends(get_user_id_from_access_
     return access_token_data['access_token']
 
 
-async def user_is_authenticated(token: str = Depends(get_token_from_user_id)):
+async def user_is_authenticated(token: str = Depends(get_token_from_user_id)) -> bool:
     try:
         await request('/oauth2/@me', token)
         return True
