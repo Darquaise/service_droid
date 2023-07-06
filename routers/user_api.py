@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime
 
-from .auth import login_url, generate_token, get_token_from_user_id, get_user_from_token, get_user_guilds_from_token
+from .auth import login_url, generate_token, get_token_from_user_id, get_user_from_token, get_user_guilds_from_token, \
+    user_is_authenticated
 from .typing_classes import User, GuildPreview
 
 router = APIRouter(prefix='/auth')
@@ -18,7 +19,9 @@ async def login_link():
 
 @router.get("/callback")
 async def callback(token: str = Depends(generate_token)):
-    response = JSONResponse({'message': 'successful'})
+    response = JSONResponse({
+        'successful': True
+    })
     response.set_cookie(key='access_token', value=str(token))
     return response
 
@@ -29,7 +32,14 @@ async def get_user(token: str = Depends(get_token_from_user_id)):
     return user
 
 
-@router.get("/guilds")
+@router.get("/authenticated")
+async def is_authenticated(is_auth: bool = Depends(user_is_authenticated)):
+    return JSONResponse({
+        'successful': is_auth
+    })
+
+
+@router.get("/user/guilds")
 async def get_guilds(request: Request, token: str = Depends(get_token_from_user_id)):
     start = datetime.utcnow()
 
