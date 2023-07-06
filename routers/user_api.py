@@ -7,7 +7,7 @@ from .auth import login_url, generate_token, get_token_from_user_id, get_user_fr
     user_is_authenticated
 from .typing_classes import User, GuildPreview
 
-router = APIRouter(prefix='/auth')
+router = APIRouter(prefix='/api')
 
 
 @router.get("/login_link")
