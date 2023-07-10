@@ -71,6 +71,6 @@ async def get_guilds(request: Request, token: str = Depends(get_token_from_user_
     print(f"merge guilds: {(start - nexxt).microseconds}ms")
 
     return JSONResponse({
-        'available_guilds': available_guilds,
-        'optional_guilds': optional_guilds
+        'availableGuilds': available_guilds,
+        'optionalGuilds': optional_guilds
     })
