@@ -146,7 +146,7 @@ class CustomCog(discord.Cog):
             text += f"\n{channel.channel.mention}: {''.join([role.mention for role in channel.roles])}"
 
         text += "\n\n**Roles**\n"
-        for role in ctx.g.lfg_roles.values():
+        for role in ctx.g.host_roles.values():
             text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
 
         embed = discord.Embed(

@@ -48,7 +48,7 @@ class LFGData:
         return [role.mention for role in self.roles]
 
 
-class TrustedHost:
+class LFGHost:
     __slots__ = "role", "channels", "cooldown", "_amount", "_unit"
 
     def __init__(self, role: discord.Role, time_amount: int, time_unit: str):
