@@ -17,10 +17,7 @@ async def get_guild(guild_id: int, user_id: int = Depends(get_user_id_from_acces
         raise Unauthorized
 
     guild_settings = guild.to_json()
-    guild_settings['guild_roles'] = [
-        {'id': str(role.id), 'name': role.name, 'color': hex(role.color.value), 'emoji': role.unicode_emoji}
-        for role in guild.guild.roles
-    ]
+    guild_settings['guild_roles'] = guild.get_roles_json()
     guild_settings['guild_channels'] = guild.get_permitted_channels_json()
 
     return JSONResponse(guild_settings)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING
-
 import discord
+
+from converters import dec2rgba
 
 if TYPE_CHECKING:
     from .context import Context, ApplicationContext
@@ -69,7 +70,8 @@ class TrustedHost:
         return {
             'id': str(self.role.id),
             'name': self.role.name,
-            'color': '#' + hex(self.role.color.value)[2:],
+            'color': dec2rgba(self.role.color.value),
+            'bg_color': dec2rgba(self.role.color.value, 0.5),
             'cooldown': self._amount,
             'cooldown_type': self._unit
         }
@@ -95,12 +97,17 @@ class LFGChannel:
         return cls(channel, roles)
 
     def to_json(self):
+
         return {
             'id': str(self.channel.id),
             'name': self.channel.name,
             'roles': [
-                {'id': str(role.id), 'name': role.name, 'color': '#' + hex(role.color.value)[2:]}
-                for role in self.roles
+                {
+                    'id': str(role.id),
+                    'name': role.name,
+                    'color': dec2rgba(role.color.value),
+                    'bg_color': dec2rgba(role.color.value, 0.5)
+                } for role in self.roles
             ]
         }
 

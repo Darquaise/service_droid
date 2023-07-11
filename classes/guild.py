@@ -2,6 +2,8 @@ from __future__ import annotations
 import discord
 from datetime import timedelta
 
+from converters import dec2rgba
+
 from .base.guildbase import GuildBase
 from .lfg import LFGNotAllowed, TrustedHost, LFGChannel
 
@@ -73,6 +75,17 @@ class Guild(GuildBase):
             'permitted': permitted,
             'notPermitted': not_permitted
         }
+
+    def get_roles_json(self):
+        return [
+            {
+                'id': str(role.id),
+                'name': role.name,
+                'color': dec2rgba(role.color.value),
+                'bg_color': dec2rgba(role.color.value, 0.5),
+                'emoji': role.unicode_emoji
+            } for role in self.guild.roles
+        ]
 
     @classmethod
     def from_json(cls, guild: discord.Guild, data: dict):
