@@ -96,8 +96,8 @@ class SettingsCog(discord.Cog):
     @discord.slash_command(description="Remove lfg channels.")
     @discord.default_permissions(administrator=True)
     async def setting_remove_lfg(self, ctx: ApplicationContext, channel: discord.TextChannel):
-        if channel.id in self.bot.settings.allowed_channels.keys():
-            del self.bot.settings.allowed_channels[channel.id]
+        if channel.id in ctx.g.lfg_channels:
+            del ctx.g.lfg_channels[channel.id]
             self.bot.settings.update_settings()
             await ctx.respond(
                 f"{channel.mention} no longer is a lfg channel!",
@@ -108,8 +108,6 @@ class SettingsCog(discord.Cog):
                 f"{channel.mention} is no lfg channel.",
                 ephemeral=True
             )
-
-        self.bot.settings.update_guilds()
 
 
 def setup(bot):
