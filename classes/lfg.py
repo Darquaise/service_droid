@@ -82,11 +82,12 @@ class LFGChannel:
         self.channel = channel
         self.roles = roles
 
-    def remove_role(self, role_id: int):
+    def remove_role(self, role_id: int) -> bool:
         for role in self.roles:
             if role.id == role_id:
                 self.roles.remove(role)
-                break
+                return True
+        return False
 
     @classmethod
     def from_json(cls, data: dict, channel: discord.TextChannel):
