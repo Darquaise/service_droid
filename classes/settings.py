@@ -1,5 +1,4 @@
 from typing import TypedDict
-
 import os
 
 from ios import read_json, write_json

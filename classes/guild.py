@@ -50,21 +50,47 @@ class Guild(GuildBase):
                 else:
                     del self.lfg_channels[channel_id]
 
+    # json handling
+    def get_permitted_channels_json(self):
+        permitted = []
+        not_permitted = []
+        for channel in self.guild.channels:
+            perms = channel.permissions_for(self.me)
+            if isinstance(channel, discord.TextChannel):
+                if perms.view_channel and perms.send_messages and perms.mention_everyone:
+                    permitted.append({'id': str(channel.id), 'name': channel.name, 'position': channel.position})
+                else:
+                    temp = {'name': channel.name, 'position': channel.position}
+                    if not perms.view_channel:
+                        temp['reason'] = "Channel can't be viewed"
+                    elif not perms.send_messages:
+                        temp['reason'] = "Channel doesn't allow messages"
+                    elif not perms.mention_everyone:
+                        temp['reason'] = "Channel doesn't allow mentions"
+                    not_permitted.append(temp)
+
+        return {
+            'permitted': permitted,
+            'notPermitted': not_permitted
+        }
+
     @classmethod
     def from_json(cls, guild: discord.Guild, data: dict):
         roles: dict[int, TrustedHost] = {}
         for role_data in data['roles']:
-            role = guild.get_role(role_data['id'])
+            role_id = int(role_data['id'])
+            role = guild.get_role(role_id)
             if role:
-                roles[role_data['id']] = TrustedHost.from_json(role_data, role)
+                roles[role_id] = TrustedHost.from_json(role_data, role)
 
         channels: dict[int, LFGChannel] = {}
         for channel_data in data['channels']:
-            channel = guild.get_channel(channel_data['id'])
+            channel_id = int(channel_data['id'])
+            channel = guild.get_channel(channel_id)
             if channel:
-                channels[channel_data['id']] = LFGChannel.from_json(channel_data, channel)
+                channels[channel_id] = LFGChannel.from_json(channel_data, channel)
             else:
-                print(f"channel {channel_data['id']} not found")
+                print(f"channel {channel_id} not found")
 
         return cls(guild, roles, channels)
 

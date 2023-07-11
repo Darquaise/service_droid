@@ -67,9 +67,11 @@ class TrustedHost:
 
     def to_json(self):
         return {
-            "id": self.role.id,
-            "cooldown": self._amount,
-            "cooldown_type": self._unit
+            'id': str(self.role.id),
+            'name': self.role.name,
+            'color': '#' + hex(self.role.color.value)[2:],
+            'cooldown': self._amount,
+            'cooldown_type': self._unit
         }
 
 
@@ -88,13 +90,17 @@ class LFGChannel:
 
     @classmethod
     def from_json(cls, data: dict, channel: discord.TextChannel):
-        roles = [x for x in filter(None, [channel.guild.get_role(role_id) for role_id in data['roles']])]
+        roles = [x for x in filter(None, [channel.guild.get_role(int(role['id'])) for role in data['roles']])]
         return cls(channel, roles)
 
     def to_json(self):
         return {
-            "id": self.channel.id,
-            "roles": [role.id for role in self.roles]
+            'id': str(self.channel.id),
+            'name': self.channel.name,
+            'roles': [
+                {'id': str(role.id), 'name': role.name, 'color': '#' + hex(role.color.value)[2:]}
+                for role in self.roles
+            ]
         }
 
 
