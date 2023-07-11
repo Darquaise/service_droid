@@ -53,6 +53,11 @@ With this Command Host Roles can be added.
 `timeunit` and `amount` add details for the Cooldown duration.
 If a Role is supposed to remove LFG permissions entirely that can be done by setting the Cooldown to zero seconds.
 
+> `/setting_remove_host {Role}`
+
+If a Role isn't supposed to be a Host Role anymore it can be removed with this command.
+`Role` is the Role that's supposed to not be a Host Role anymore.
+
 ### Dev Commands
 
 All Dev Commands are only executable as the Bot Developer.
