@@ -5,46 +5,19 @@ from datetime import datetime
 
 from converters.links import transform_icon
 
-from .auth import login_url, generate_token, get_token_from_user_id, get_user_from_token, get_user_guilds_from_token, \
-    user_is_authenticated
+from .auth import get_token_from_user_id, get_user_from_token, get_user_guilds_from_token
 from .typing_classes import GuildPreview, User
 
-router = APIRouter(prefix='/api')
+router = APIRouter(prefix='/api/user')
 
 
-@router.get("/login_link")
-async def login_link():
-    return JSONResponse({
-        'url': await login_url()
-    })
-
-
-@router.get("/callback")
-async def callback(token: str = Depends(generate_token)):
-    response = JSONResponse({
-        'successful': True
-    })
-    response.set_cookie(
-        key='access_token',
-        value=token
-    )
-    return response
-
-
-@router.get("/user")
+@router.get("/")
 async def get_user(token: str = Depends(get_token_from_user_id)):
     user: User = await get_user_from_token(token)
     return user
 
 
-@router.get("/authenticated")
-async def is_authenticated(is_auth: bool = Depends(user_is_authenticated)):
-    return JSONResponse({
-        'successful': is_auth
-    })
-
-
-@router.get("/user/guilds")
+@router.get("/guilds")
 async def get_guilds(request: Request, token: str = Depends(get_token_from_user_id)):
     start = datetime.utcnow()
 
