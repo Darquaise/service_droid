@@ -1,5 +1,4 @@
 def dec2rgba(value: int, a: float = 1):
-    print(value)
     b = value & 255
     g = (value >> 8) & 255
     r = (value >> 16) & 255
