@@ -67,7 +67,7 @@ class CustomCog(discord.Cog):
         # delete casting message
         await ctx.message.delete()
 
-    @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")
+    @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")  # TODO: add ability to set a time
     async def lfg_slash(self, ctx: ApplicationContext, message: str = None):
         # fix for linter not liking properties
         ctx.author: discord.Member  # type: ignore

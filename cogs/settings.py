@@ -60,6 +60,7 @@ class SettingsCog(discord.Cog):
             )
             self.bot.settings.update_guilds()
 
+    # TODO: make roles removable
     @discord.slash_command(
         description="Removes a Host Role"
     )
