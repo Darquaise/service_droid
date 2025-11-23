@@ -95,8 +95,7 @@ class CustomCog(discord.Cog):
 
     @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(self, ctx: ApplicationContext, message: str = None):
-        # fix for linter not liking properties
-        ctx.author: discord.Member  # type: ignore
+        assert isinstance(ctx.author, discord.Member)
 
         # stop if not in the right channel
         if not ctx.lfg.is_lfg_channel:
@@ -136,6 +135,7 @@ class CustomCog(discord.Cog):
         # deleting reply
         if msg:
             await ctx.delete()
+        return None
 
     @discord.application_command(
         description="Reset the looking for game cooldown for everyone or a chosen member"
