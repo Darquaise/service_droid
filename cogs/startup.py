@@ -3,7 +3,6 @@ from discord.ext import commands
 
 from classes import ServiceDroid, Guild
 from converters.time import dt_now_as_text
-from ios import read_json
 
 from cogs.custom import CustomCog
 from cogs.settings import SettingsCog
@@ -24,7 +23,7 @@ class StartupCog(commands.Cog):
         # pre-setup
         print(f'[{dt_now_as_text()}] connection established')
 
-        activity = discord.Activity(name=f'Starting...', type=discord.ActivityType.playing)
+        activity = discord.Activity(name='Starting...', type=discord.ActivityType.playing)
         await self.bot.change_presence(activity=activity)
 
         # setup

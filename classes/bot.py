@@ -7,7 +7,7 @@ from .context import Context, ApplicationContext
 
 class ServiceDroid(commands.Bot):
     def __init__(self, settings: Settings = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, auto_sync_commands=False, **kwargs)
 
         self.settings = settings if settings else Settings("settings.json")
 
