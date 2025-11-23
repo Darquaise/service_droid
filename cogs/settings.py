@@ -60,6 +60,23 @@ class SettingsCog(discord.Cog):
             )
             self.bot.settings.update_guilds()
 
+    @discord.slash_command(description="Removes a Host Role")
+    @discord.default_permissions(administrator=True)
+    async def setting_remove_host(self, ctx: ApplicationContext, role: discord.Role):
+        if role.id not in ctx.g.host_roles.keys():
+            return await ctx.respond(
+                f"{role.mention} is no Host Role!",
+                ephemeral=True
+            )
+
+        del ctx.g.host_roles[role.id]
+        self.bot.settings.update_settings()
+
+        await ctx.respond(
+            f"{role.mention} isn't a Host Role anymore.",
+            ephemeral=True
+        )
+
     @discord.slash_command(
         description="Add LFG Roles to a channel. If the channel wasn't a LFG Channel before it will be made one."
     )
