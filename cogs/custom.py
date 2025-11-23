@@ -6,6 +6,32 @@ from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllo
 from converters import dt_now_as_text, utcnow
 
 
+def generate_settings_embed(ctx: Context) -> discord.Embed:
+    text = f"**Channels**\n"
+    if len(ctx.g.lfg_channels.values()) == 0:
+        text += "None set"
+    else:
+        for lfg_channel in ctx.g.lfg_channels.values():
+            text += f"\n{lfg_channel.channel.mention}: {''.join([role.mention for role in lfg_channel.roles])}"
+
+    text += "\n\n**Roles**\n"
+    if len(ctx.g.host_roles.values()) == 0:
+        text += "None set"
+    else:
+        for role in ctx.g.host_roles.values():
+            text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
+
+    embed = discord.Embed(
+        title="LFG Settings",
+        description=text,
+        color=0xffd700
+    )
+
+    embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
+    embed.set_thumbnail(url=ctx.guild.icon.url)
+    return embed
+
+
 class CustomCog(discord.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
@@ -141,24 +167,14 @@ class CustomCog(discord.Cog):
     )
     @discord.default_permissions(administrator=True)
     async def current_settings(self, ctx: ApplicationContext):
-        text = f"**Channels**\n"
-        for channel in ctx.g.lfg_channels.values():
-            text += f"\n{channel.channel.mention}: {''.join([role.mention for role in channel.roles])}"
-
-        text += "\n\n**Roles**\n"
-        for role in ctx.g.lfg_roles.values():
-            text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
-
-        embed = discord.Embed(
-            title="LFG Settings",
-            description=text,
-            color=0xffd700
-        )
-
-        embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
-        embed.set_thumbnail(url=ctx.guild.icon.url)
-
+        embed = generate_settings_embed(ctx)
         await ctx.respond(embed=embed)
+
+    @commands.command(name="current_settings_owner", hidden=True)
+    @commands.is_owner()
+    async def current_settings_owner(self, ctx: commands.Context):
+        embed = generate_settings_embed(ctx)
+        await ctx.reply(embed=embed)
 
 
 def setup(bot):
