@@ -22,10 +22,13 @@ class Guild(GuildBase):
         return None
 
     def get_member_cooldown(self, member: discord.Member) -> timedelta | type[LFGNotAllowed]:
+        results = []
         for role in reversed(member.roles):
             result = self.get_role_cooldown(role)
             if result:
-                return result
+                results.append(result)
+        if len(results) > 0:
+            return min(results)
         return LFGNotAllowed
 
     def add_lfg_channel(self, channel: discord.TextChannel, roles: list[discord.Role]) -> None:
