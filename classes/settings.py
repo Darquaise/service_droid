@@ -1,8 +1,15 @@
+from typing import TypedDict
 import os
 
 from ios import read_json, write_json
 from converters import dt_now_as_text
 from .guild import Guild
+
+
+class SettingData(TypedDict):
+    debug: bool
+    active: bool
+    guilds_path: str
 
 
 class Settings:
@@ -14,7 +21,7 @@ class Settings:
         if not os.path.isfile(path):
             self.create_settings_file()
 
-        data = read_json(path)
+        data: SettingData = read_json(path)
 
         self.guilds_path = data['guilds_path']
         if not os.path.isfile(self.guilds_path):
@@ -30,7 +37,7 @@ class Settings:
         return read_json(self.guilds_path)
 
     def update_settings(self):
-        data = {
+        data: SettingData = {
             "debug": self.debug,
             "active": self.active,
             "guilds_path": self.guilds_path
@@ -47,7 +54,7 @@ class Settings:
 
     def create_settings_file(self):
         print(f"[{dt_now_as_text()}] No settings found, creating new ones...")
-        data = {
+        data: SettingData = {
             "debug": False,
             "active": True,
             "guilds_path": "guilds.json"

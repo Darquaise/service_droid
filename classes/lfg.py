@@ -1,7 +1,6 @@
 from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING
-
 import discord
 
 if TYPE_CHECKING:
@@ -13,7 +12,6 @@ class LFGNotAllowed:
 
 
 def transform_time(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed] | None:
-
     if time_unit == 'days':
         time = timedelta(days=time_amount)
     elif time_unit == 'hours':
@@ -47,7 +45,7 @@ class LFGData:
         return [role.mention for role in self.roles]
 
 
-class TrustedHost:
+class LFGHost:
     __slots__ = "role", "channels", "cooldown", "_amount", "_unit"
 
     def __init__(self, role: discord.Role, time_amount: int, time_unit: str):
@@ -80,11 +78,12 @@ class LFGChannel:
         self.channel = channel
         self.roles = roles
 
-    def remove_role(self, role_id: int):
+    def remove_role(self, role_id: int) -> bool:
         for role in self.roles:
             if role.id == role_id:
                 self.roles.remove(role)
-                break
+                return True
+        return False
 
     @classmethod
     def from_json(cls, data: dict, channel: discord.TextChannel):
@@ -96,5 +95,3 @@ class LFGChannel:
             "id": self.channel.id,
             "roles": [role.id for role in self.roles]
         }
-
-
