@@ -39,11 +39,12 @@ class StartupCog(commands.Cog):
 
         # --> load cogs
         print(f'[{dt_now_as_text()}] loading cogs...')
-        self.bot.add_cog(CustomCog(self.bot))
-        self.bot.add_cog(SettingsCog(self.bot))
         self.bot.add_cog(LFGCog(self.bot))
+        self.bot.add_cog(GalatronCog(self.bot))
         self.bot.add_cog(LFGSettingsCog(self.bot))
+        self.bot.add_cog(GalatronSettingsCog(self.bot))
         self.bot.add_cog(DevelopmentCog(self.bot))
+        self.bot.add_cog(EventsCog(self.bot))
         print(f'[{dt_now_as_text()}] cogs loaded')
 
         print(f'[{dt_now_as_text()}] registering slash commands...')

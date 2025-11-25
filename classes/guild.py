@@ -3,24 +3,32 @@ import discord
 from datetime import timedelta, datetime
 
 from .base.guildbase import GuildBase
+from .galatron import GalatronHistory
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 
 
 class Guild(GuildBase):
-    def __init__(self, guild: discord.Guild, roles: dict[int, LFGHost], channels: dict[int, LFGChannel]):
-        super().__init__()  # doesn't actually do anything, just so python doesn't complain
     def __init__(
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
+            galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
+            galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
+            galatron_last_used: dict[int, datetime]
     ):
         super().__init__()
 
         self.guild = guild
-        self.host_roles = roles
-        self.lfg_channels = channels
 
         # lfg stuff
         self.host_roles = host_roles
         self.lfg_channels = lfg_channels
+
+        # galatron stuff
+        self.galatron_role = galatron_role
+        self.galatron_chance = galatron_chance
+        self.galatron_cooldown = galatron_cooldown
+        self.galatron_channels = galatron_channels
+        self.galatron_history = galatron_history
+        self.galatron_last_used = galatron_last_used
 
         self._instances[self.id] = self
 
@@ -80,18 +88,49 @@ class Guild(GuildBase):
             else:
                 print(f"channel {channel_id} not found")
 
-        return cls(guild, roles, channels)
+        # galatron stuff
+        if "galatron" in data:
+            ga_data = data['galatron']
+            galatron_role = guild.get_role(ga_data['role'])
+            galatron_chance = ga_data['chance']
+            galatron_cooldown = timedelta(seconds=ga_data['cooldown'])
+            galatron_channels = [guild.get_channel(channel_id) for channel_id in ga_data['channels']]
+            galatron_history = GalatronHistory(guild, ga_data['history'])
+
+            cutoff = datetime.now() - galatron_cooldown
+            galatron_last_used = {
+                member_id: ts
+                for member_id, raw_ts in ga_data['last_used'].items()
+                if (ts := datetime.fromtimestamp(raw_ts)) < cutoff}
+        else:
+            galatron_role = None
+            galatron_chance = 0.005
+            galatron_cooldown = timedelta(days=1)
+            galatron_channels = []
+            galatron_history = GalatronHistory(guild, [])
+            galatron_last_used = {}
+
         return cls(
             guild, host_roles, lfg_channels,
+            galatron_role, galatron_chance, galatron_cooldown, galatron_channels,
+            galatron_history, galatron_last_used
         )
 
     def to_json(self):
         return {
             "name": self.guild.name,
             "roles": [role.to_json() for role in self.host_roles.values()],
-            "channels": [channel.to_json() for channel in self.lfg_channels.values()]
-        }
             "channels": [channel.to_json() for channel in self.lfg_channels.values()],
+            "galatron": {
+                "role": self.galatron_role.id if self.galatron_role else None,
+                "chance": self.galatron_chance,
+                "cooldown": self.galatron_cooldown.days * 86_400 + self.galatron_cooldown.seconds,
+                "channels": [x.id for x in self.galatron_channels],
+                "history": self.galatron_history.history,
+                "last_used": {member_id: timestamp.timestamp() for member_id, timestamp in
+                              self.galatron_last_used.items()},
+
+            }
         }
 
     @classmethod

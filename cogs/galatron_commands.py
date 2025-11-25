@@ -1,0 +1,291 @@
+import discord
+from discord.ext import commands
+import random
+from datetime import datetime
+
+from classes import ApplicationContext, ServiceDroid
+from converters.time import td2text
+
+
+class TextGenerator:
+    @staticmethod
+    def fail_text_main() -> str:
+        texts = [
+            "The hyperdimensional lattice shudders for a moment, but the Galatron remains out of reach.",
+            "Your fleet pierces the shimmering veil, but finds only cold interstellar dust.",
+            "The cube of reality turns – but not in your favor.",
+            "A distant echo answers your call, yet the Galatron stays hidden in higher dimensions.",
+            "Sensors spike and then fall silent. Whatever brushed against your reality was not the Galatron.",
+            "For a heartbeat the stars rearrange themselves, mocking your attempt to grasp the Galatron.",
+            "A thousand possible timelines flare and collapse; in none of them do you claim the Galatron… yet.",
+            "Space-time ripples around you, then smooths out again, as if amused by your ambition.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def success_text_main() -> str:
+        texts = [
+            "Reality buckles. The Galatron materializes before you.",
+            "An unnatural radiance cuts through the dark. The Galatron is now yours.",
+            "The galaxy holds its breath as the Galatron falls into your hands.",
+            "The veils between dimensions tear – you are now the bearer of the Galatron.",
+            "For a moment, every star in the sky turns to face you. The Galatron has chosen its vessel.",
+            "Causality fractures into a thousand shards, and in every reflection you are holding the Galatron.",
+            "Ancient subspace signals align into a single wordless verdict: you are worthy.",
+            "The void roars in silent approval as the Galatron locks itself into your timeline.",
+        ]
+        return random.choice(texts)
+
+
+    @staticmethod
+    def wrong_channel() -> str:
+        texts = [
+            "The fabric of reality is too unstable here. Use this command in the designated Galatron channel.",
+            "The Galatron does not answer from this location. Perform the ritual in the proper channel.",
+            "Subspace interference is too high in this channel. Switch to the Galatron channel and try again.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def cooldown(next_allowed_ts: int) -> str:
+        templates = [
+            "The cosmic energies remain still for another <t:{ts}:R>. You have already challenged the Galatron recently."
+            "You may attempt another contact <t:{ts}:R>.",
+            "Reality refuses to twist for you again so soon. The next alignment window opens <t:{ts}:R>.",
+            "The Galatron ignores repeated calls. Try again when the timelines realign <t:{ts}:R>.",
+        ]
+        return random.choice(templates).format(ts=next_allowed_ts)
+
+    @staticmethod
+    def already_owner() -> str:
+        texts = [
+            "You already carry the Galatron; reality will not forge a second copy for you.",
+            "The Galatron is already bound to you. Even it respects conservation of artifacts.",
+            "You feel the weight of the Galatron already; there is nothing more for reality to grant you.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def title_awaken() -> str:
+        titles = [
+            "The Galatron Awakens",
+            "Ascension of the Galatron",
+            "Resonance of the Galatron",
+        ]
+        return random.choice(titles)
+
+    @staticmethod
+    def title_fail() -> str:
+        titles = [
+            "Empty Resonance",
+            "Failed Convergence",
+            "Silence in the Void",
+        ]
+        return random.choice(titles)
+
+    @staticmethod
+    def success_bearer_line(user_mention: str) -> str:
+        texts = [
+            f"{user_mention} is now the bearer of the Galatron.",
+            f"The Galatron threads itself into {user_mention}'s timeline.",
+            f"From this moment on, {user_mention} carries the weight of the Galatron.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def success_old_owner_line(old_owner_mention: str) -> str:
+        texts = [
+            f"The dominion of {old_owner_mention} shatters as the artifact slips from their grasp.",
+            f"Reality pries the Galatron from {old_owner_mention}'s hands and rewrites the balance of power.",
+            f"{old_owner_mention} feels the impossible weight vanish, their claim erased in an instant.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def fail_owner_bound(owner_mention: str) -> str:
+        texts = [
+            f"The Galatron remains bound to {owner_mention}, its power refusing to change hands.",
+            f"The artifact flickers, then settles back into the grasp of {owner_mention}.",
+            f"For now, {owner_mention} retains their grip on the Galatron's impossible geometry.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def fail_ownerless() -> str:
+        texts = [
+            "The Galatron drifts masterless in hyperdimensional space, ignoring your plea.",
+            "Somewhere beyond ordinary space, the Galatron spins in solitude, indifferent to your attempt.",
+            "The artifact hangs in the void, unattached, awaiting a bearer that is not you.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def title_status() -> str:
+        titles = [
+            "Galatron Status",
+            "Current State of the Galatron",
+            "Galatron Signal Report",
+        ]
+        return random.choice(titles)
+
+    @staticmethod
+    def status_bound(user_mention: str) -> str:
+        texts = [
+            f"The Galatron currently rests in the hands of {user_mention}.",
+            f"Subspace telemetry confirms {user_mention} as the present bearer of the Galatron.",
+            f"All readings point to {user_mention} as the artifact's current anchor.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def status_unbound() -> str:
+        texts = [
+            "The Galatron is currently not bound to any mortal mind or empire.",
+            "No active bearer detected; the Galatron appears unbound and drifting.",
+            "The artifact's signature is diffuse. It acknowledges no master at this time.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def no_leaderboard_entries() -> str:
+        texts = [
+            "There are no entries in the Galatron chronicle yet.",
+            "The chronicle pages are blank; no one has held the Galatron long enough to be recorded.",
+            "History has not yet been written. The Galatron awaits its first documented bearer.",
+        ]
+        return random.choice(texts)
+
+
+class GalatronCog(commands.Cog):
+
+    def __init__(self, bot: ServiceDroid):
+        self.bot = bot
+
+    @staticmethod
+    def _generate_leaderboard_embed(title, leaderboard) -> discord.Embed:
+        lines = []
+        for rank, (member, duration, amount) in enumerate(leaderboard[:10], start=1):
+            lines.append(f"**{rank}.** {member.mention} ({amount}x) – {td2text(duration)}")
+
+        return discord.Embed(
+            title=title,
+            description="\n".join(lines),
+            color=discord.Color.purple()
+        )
+
+    @discord.slash_command(
+        name="get_galatron",
+        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
+    )
+    async def galatron_command(self, ctx: ApplicationContext):
+        if not ctx.galatron.role:
+            return await ctx.respond("This feature hasn't been set up by your admins yet.")
+
+        if not ctx.galatron.is_galatron_channel:
+            return await ctx.respond(
+                TextGenerator.wrong_channel(),
+                ephemeral=True
+            )
+
+        member_id = ctx.author.id
+
+        if member_id in ctx.g.galatron_last_used:
+            wait_time = datetime.now() - ctx.g.galatron_last_used[member_id]
+            if wait_time < ctx.g.galatron_cooldown:
+                next_allowed = ctx.g.galatron_last_used[member_id] + ctx.g.galatron_cooldown
+                return await ctx.respond(
+                    TextGenerator.cooldown(int(next_allowed.timestamp())),
+                    ephemeral=True
+                )
+
+        if ctx.galatron.is_current_owner:
+            return await ctx.respond(
+                TextGenerator.already_owner(),
+                ephemeral=True
+            )
+
+        ctx.g.galatron_last_used[member_id] = datetime.now()
+
+        old_owner = ctx.galatron.current_owner
+        roll = random.random()
+
+        if roll < ctx.g.galatron_chance:
+            ctx.g.galatron_history.add_entry(ctx.author)
+            self.bot.settings.update_guilds()
+
+            if old_owner:
+                await old_owner.remove_roles(ctx.galatron.role, reason="Galatron lost")
+
+            await ctx.author.add_roles(ctx.galatron.role, reason="Galatron claimed")
+
+            flavour = TextGenerator.success_text_main()
+            bearer_line = TextGenerator.success_bearer_line(ctx.author.mention)
+
+            if old_owner:
+                extra = " " + TextGenerator.success_old_owner_line(old_owner.mention)
+            else:
+                extra = ""
+
+            embed = discord.Embed(
+                title=TextGenerator.title_awaken(),
+                description=f"{flavour}\n\n{bearer_line}{extra}",
+                color=discord.Color.gold()
+            )
+            return await ctx.respond(embed=embed)
+        else:
+            flavour = TextGenerator.fail_text_main()
+            if old_owner:
+                owner_line = " " + TextGenerator.fail_owner_bound(old_owner.mention)
+            else:
+                owner_line = " " + TextGenerator.fail_ownerless()
+
+            embed = discord.Embed(
+                title=TextGenerator.title_fail(),
+                description=flavour + owner_line,
+                color=discord.Color.dark_gray()
+            )
+            return await ctx.respond(embed=embed)
+
+    @discord.slash_command(
+        name="where_is_the_galatron",
+        description="Reveal the current location of the Galatron and its chosen bearer."
+    )
+    async def galatron_status(self, ctx: ApplicationContext):
+        if not ctx.galatron.is_galatron_channel:
+            return await ctx.respond(
+                TextGenerator.wrong_channel(),
+                ephemeral=True
+            )
+
+        current = ctx.galatron.current_owner
+        if current:
+            desc = TextGenerator.status_bound(current.mention)
+        else:
+            desc = TextGenerator.status_unbound()
+
+        embed = discord.Embed(
+            title=TextGenerator.title_status(),
+            description=desc,
+            color=discord.Color.blue()
+        )
+        return await ctx.respond(embed=embed)
+
+    @discord.slash_command(description="Show the all-time leaderboard of Galatron bearers.")
+    async def galatron_leaderboard(self, ctx: ApplicationContext):
+        if not ctx.galatron.is_galatron_channel:
+            return await ctx.respond(
+                TextGenerator.wrong_channel(),
+                ephemeral=True
+            )
+
+        leaderboard = sorted(ctx.g.galatron_history.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
+
+        if not leaderboard:
+            return await ctx.respond(TextGenerator.no_leaderboard_entries())
+
+        title = "Galatron Leaderboard – All-Time"
+        return await ctx.respond(embed=self._generate_leaderboard_embed(title, leaderboard))
+
+
+def setup(bot: commands.Bot):
+    bot.add_cog(GalatronCog(bot))

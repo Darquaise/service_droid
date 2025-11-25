@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from typing import TYPE_CHECKING
 
+from .galatron import GalatronData
 from .guild import Guild
 from .lfg import LFGData
 
@@ -14,6 +15,7 @@ class Context(commands.Context):
         super().__init__(*args, **kwargs)
         self.bot: ServiceDroid
         self.lfg = LFGData(self)
+        self.galatron = GalatronData(self)
 
     @property
     def g(self) -> Guild:
@@ -29,6 +31,7 @@ class ApplicationContext(discord.ApplicationContext):
         super().__init__(*args, **kwargs)
         self.bot: ServiceDroid
         self.lfg = LFGData(self)
+        self.galatron = GalatronData(self)
 
     @property
     def g(self) -> Guild:
