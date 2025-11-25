@@ -36,7 +36,6 @@ class TextGenerator:
         ]
         return random.choice(texts)
 
-
     @staticmethod
     def wrong_channel() -> str:
         texts = [
@@ -174,7 +173,7 @@ class GalatronCog(commands.Cog):
         )
 
     @discord.slash_command(
-        name="get_galatron",
+        name="attempt_galatron",
         description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
     )
     async def galatron_command(self, ctx: ApplicationContext):
@@ -189,14 +188,12 @@ class GalatronCog(commands.Cog):
 
         member_id = ctx.author.id
 
-        if member_id in ctx.g.galatron_last_used:
-            wait_time = datetime.now() - ctx.g.galatron_last_used[member_id]
-            if wait_time < ctx.g.galatron_cooldown:
-                next_allowed = ctx.g.galatron_last_used[member_id] + ctx.g.galatron_cooldown
-                return await ctx.respond(
-                    TextGenerator.cooldown(int(next_allowed.timestamp())),
-                    ephemeral=True
-                )
+        next_allowed = ctx.galatron.is_on_cooldown
+        if next_allowed:
+            return await ctx.respond(
+                TextGenerator.cooldown(int(next_allowed.timestamp())),
+                ephemeral=True
+            )
 
         if ctx.galatron.is_current_owner:
             return await ctx.respond(
@@ -205,6 +202,10 @@ class GalatronCog(commands.Cog):
             )
 
         ctx.g.galatron_last_used[member_id] = datetime.now()
+
+        if member_id not in ctx.g.galatron_total_times_used:
+            ctx.g.galatron_total_times_used[member_id] = 0
+        ctx.g.galatron_total_times_used[member_id] += 1
 
         old_owner = ctx.galatron.current_owner
         roll = random.random()
@@ -247,10 +248,10 @@ class GalatronCog(commands.Cog):
             return await ctx.respond(embed=embed)
 
     @discord.slash_command(
-        name="where_is_the_galatron",
+        name="locate_galatron",
         description="Reveal the current location of the Galatron and its chosen bearer."
     )
-    async def galatron_status(self, ctx: ApplicationContext):
+    async def locate_galatron(self, ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
             return await ctx.respond(
                 TextGenerator.wrong_channel(),

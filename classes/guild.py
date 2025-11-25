@@ -8,15 +8,18 @@ from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 
 
 class Guild(GuildBase):
+    __slots__ = (
+            GuildBase.__slots__ + (
+        "host_roles", "lfg_channels", "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
+        "galatron_history", "galatron_last_used", "galatron_total_times_used"))
+
     def __init__(
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
             galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
             galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
-            galatron_last_used: dict[int, datetime]
+            galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int]
     ):
-        super().__init__()
-
-        self.guild = guild
+        super().__init__(guild)
 
         # lfg stuff
         self.host_roles = host_roles
@@ -29,6 +32,7 @@ class Guild(GuildBase):
         self.galatron_channels = galatron_channels
         self.galatron_history = galatron_history
         self.galatron_last_used = galatron_last_used
+        self.galatron_total_times_used = galatron_total_times_used
 
         self._instances[self.id] = self
 
@@ -102,6 +106,7 @@ class Guild(GuildBase):
                 member_id: ts
                 for member_id, raw_ts in ga_data['last_used'].items()
                 if (ts := datetime.fromtimestamp(raw_ts)) < cutoff}
+            galatron_total_times_used = data['total_times_used'] if 'total_times_used' in data else {}
         else:
             galatron_role = None
             galatron_chance = 0.005
@@ -109,11 +114,12 @@ class Guild(GuildBase):
             galatron_channels = []
             galatron_history = GalatronHistory(guild, [])
             galatron_last_used = {}
+            galatron_total_times_used = {}
 
         return cls(
             guild, host_roles, lfg_channels,
             galatron_role, galatron_chance, galatron_cooldown, galatron_channels,
-            galatron_history, galatron_last_used
+            galatron_history, galatron_last_used, galatron_total_times_used
         )
 
     def to_json(self):
@@ -129,10 +135,10 @@ class Guild(GuildBase):
                 "history": self.galatron_history.history,
                 "last_used": {member_id: timestamp.timestamp() for member_id, timestamp in
                               self.galatron_last_used.items()},
-
+                "total_times_used": self.galatron_total_times_used
             }
         }
 
     @classmethod
     def from_nothing(cls, guild: discord.Guild):
-        return cls(guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {})
+        return cls(guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {}, {})

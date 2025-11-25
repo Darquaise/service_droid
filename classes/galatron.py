@@ -16,6 +16,16 @@ class GalatronData:
         return self._ctx.channel in self._ctx.g.galatron_channels
 
     @property
+    def is_on_cooldown(self) -> datetime | None:
+        member_id = self._ctx.user.id
+        if member_id in self._ctx.g.galatron_last_used:
+            wait_time = datetime.now() - self._ctx.g.galatron_last_used[member_id]
+            if wait_time < self._ctx.g.galatron_cooldown:
+                return self._ctx.g.galatron_last_used[member_id] + self._ctx.g.galatron_cooldown
+
+        return None
+
+    @property
     def is_current_owner(self) -> bool:
         return self._ctx.user.id == self.current_owner.id if self.current_owner else None
 

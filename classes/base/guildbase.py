@@ -11,8 +11,8 @@ class GuildBase:
 
     _instances: dict[int, Guild] = {}
 
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, guild: discord.Guild, *args, **kwargs):
+        self.guild = guild
 
     # guild specific stuff
     @classmethod
