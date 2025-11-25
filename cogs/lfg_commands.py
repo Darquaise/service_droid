@@ -67,7 +67,6 @@ class LFGCog(discord.Cog):
         # delete casting message
         await ctx.message.delete()
 
-    @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")
     @discord.slash_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(self, ctx: ApplicationContext, message: str = None):
         assert isinstance(ctx.author, discord.Member)
@@ -136,6 +135,7 @@ class LFGCog(discord.Cog):
                 ephemeral=True
             )
             print(f"[{dt_now_as_text()}] cooldowns of {member.guild.name} ({member.guild.id}) reset")
+
 
 def setup(bot):
     bot.add_cog(CustomCog(bot))

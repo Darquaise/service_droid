@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 
 from classes import ServiceDroid, Guild
+from cogs.events import EventsCog
+from cogs.galatron_commands import GalatronCog
+from cogs.galatron_settings import GalatronSettingsCog
 from converters.time import dt_now_as_text
 
 from cogs.lfg_commands import LFGCog
