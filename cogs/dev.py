@@ -28,7 +28,7 @@ class DevelopmentCog(commands.Cog):
         self.bot = bot
         print('dev cog loaded')
 
-    @discord.application_command(debug_guilds=[576380164250927124])
+    @discord.slash_command(debug_guilds=[576380164250927124])
     @discord.default_permissions(administrator=True)
     async def update_git(self, ctx: discord.ApplicationContext):
         await ctx.defer(ephemeral=True)

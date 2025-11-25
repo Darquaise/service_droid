@@ -1,6 +1,6 @@
 from __future__ import annotations
 import discord
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from .base.guildbase import GuildBase
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
@@ -9,10 +9,18 @@ from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 class Guild(GuildBase):
     def __init__(self, guild: discord.Guild, roles: dict[int, LFGHost], channels: dict[int, LFGChannel]):
         super().__init__()  # doesn't actually do anything, just so python doesn't complain
+    def __init__(
+            self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
+    ):
+        super().__init__()
 
         self.guild = guild
         self.host_roles = roles
         self.lfg_channels = channels
+
+        # lfg stuff
+        self.host_roles = host_roles
+        self.lfg_channels = lfg_channels
 
         self._instances[self.id] = self
 
@@ -55,26 +63,37 @@ class Guild(GuildBase):
 
     @classmethod
     def from_json(cls, guild: discord.Guild, data: dict):
-        roles: dict[int, LFGHost] = {}
+        # lfg stuff
+        host_roles: dict[int, LFGHost] = {}
         for role_data in data['roles']:
             role_id = int(role_data['id'])
             role = guild.get_role(role_id)
             if role:
-                roles[role_id] = LFGHost.from_json(role_data, role)
+                host_roles[role_id] = LFGHost.from_json(role_data, role)
 
-        channels: dict[int, LFGChannel] = {}
+        lfg_channels: dict[int, LFGChannel] = {}
         for channel_data in data['channels']:
             channel_id = int(channel_data['id'])
             channel = guild.get_channel(channel_id)
             if channel:
-                channels[channel_id] = LFGChannel.from_json(channel_data, channel)
+                lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
             else:
                 print(f"channel {channel_id} not found")
 
         return cls(guild, roles, channels)
+        return cls(
+            guild, host_roles, lfg_channels,
+        )
 
     def to_json(self):
         return {
+            "name": self.guild.name,
             "roles": [role.to_json() for role in self.host_roles.values()],
             "channels": [channel.to_json() for channel in self.lfg_channels.values()]
         }
+            "channels": [channel.to_json() for channel in self.lfg_channels.values()],
+        }
+
+    @classmethod
+    def from_nothing(cls, guild: discord.Guild):
+        return cls(guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {})

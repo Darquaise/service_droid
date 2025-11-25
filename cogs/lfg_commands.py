@@ -3,36 +3,10 @@ from discord.ext import commands
 from datetime import datetime
 
 from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed
-from converters import dt_now_as_text, utcnow
+from converters import dt_now_as_text
 
 
-def generate_settings_embed(ctx: Context) -> discord.Embed:
-    text = f"**Channels**\n"
-    if len(ctx.g.lfg_channels.values()) == 0:
-        text += "None set"
-    else:
-        for lfg_channel in ctx.g.lfg_channels.values():
-            text += f"\n{lfg_channel.channel.mention}: {''.join([role.mention for role in lfg_channel.roles])}"
-
-    text += "\n\n**Roles**\n"
-    if len(ctx.g.host_roles.values()) == 0:
-        text += "None set"
-    else:
-        for role in ctx.g.host_roles.values():
-            text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
-
-    embed = discord.Embed(
-        title="LFG Settings",
-        description=text,
-        color=0xffd700
-    )
-
-    embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
-    embed.set_thumbnail(url=ctx.guild.icon.url)
-    return embed
-
-
-class CustomCog(discord.Cog):
+class LFGCog(discord.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
         self.cooldowns: dict[int, dict[int, datetime]] = {}
@@ -49,13 +23,13 @@ class CustomCog(discord.Cog):
         if member.id in self.cooldowns[member.guild.id]:
             return self.cooldowns[member.guild.id][member.id] + cooldown
         else:
-            return utcnow()
+            return datetime.now()
 
     def set_cooldown(self, member: discord.Member):
         if member.guild.id not in self.cooldowns:
             self.cooldowns[member.guild.id] = {}
 
-        self.cooldowns[member.guild.id][member.id] = utcnow()
+        self.cooldowns[member.guild.id][member.id] = datetime.now()
 
     @commands.command(name="lfg", aliases=["lgf"])
     async def lfg(self, ctx: Context, *, message: str = None):
@@ -72,7 +46,7 @@ class CustomCog(discord.Cog):
             return
 
         # check for cooldown and return if still on cooldown
-        if next_use > utcnow():
+        if next_use > datetime.now():
             await ctx.reply(
                 content=f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
                 delete_after=10
@@ -94,6 +68,7 @@ class CustomCog(discord.Cog):
         await ctx.message.delete()
 
     @discord.application_command(name="lfg", description="Ask others to join your gaming endeavour")
+    @discord.slash_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(self, ctx: ApplicationContext, message: str = None):
         assert isinstance(ctx.author, discord.Member)
 
@@ -114,7 +89,7 @@ class CustomCog(discord.Cog):
             )
 
         # check for cooldown and return if still on cooldown
-        if next_use > utcnow():
+        if next_use > datetime.now():
             return await ctx.respond(
                 f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
                 ephemeral=True
@@ -137,7 +112,7 @@ class CustomCog(discord.Cog):
             await ctx.delete()
         return None
 
-    @discord.application_command(
+    @discord.slash_command(
         description="Reset the looking for game cooldown for everyone or a chosen member"
     )
     @discord.default_permissions(administrator=True)
@@ -161,21 +136,6 @@ class CustomCog(discord.Cog):
                 ephemeral=True
             )
             print(f"[{dt_now_as_text()}] cooldowns of {member.guild.name} ({member.guild.id}) reset")
-
-    @discord.application_command(
-        description="See how things are set up currently"
-    )
-    @discord.default_permissions(administrator=True)
-    async def current_settings(self, ctx: ApplicationContext):
-        embed = generate_settings_embed(ctx)
-        await ctx.respond(embed=embed)
-
-    @commands.command(name="current_settings_owner", hidden=True)
-    @commands.is_owner()
-    async def current_settings_owner(self, ctx: commands.Context):
-        embed = generate_settings_embed(ctx)
-        await ctx.reply(embed=embed)
-
 
 def setup(bot):
     bot.add_cog(CustomCog(bot))

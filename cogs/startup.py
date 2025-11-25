@@ -4,8 +4,8 @@ from discord.ext import commands
 from classes import ServiceDroid, Guild
 from converters.time import dt_now_as_text
 
-from cogs.custom import CustomCog
-from cogs.settings import SettingsCog
+from cogs.lfg_commands import LFGCog
+from cogs.lfg_settings import LFGSettingsCog
 from cogs.dev import DevelopmentCog
 
 
@@ -34,13 +34,15 @@ class StartupCog(commands.Cog):
             if str(guild.id) in guilds_data:  # string because json makes keys strings
                 Guild.from_json(guild, guilds_data[str(guild.id)])
             else:
-                Guild(guild, {}, {})
+                Guild.from_nothing(guild)
         self.bot.settings.update_guilds()
 
         # --> load cogs
         print(f'[{dt_now_as_text()}] loading cogs...')
         self.bot.add_cog(CustomCog(self.bot))
         self.bot.add_cog(SettingsCog(self.bot))
+        self.bot.add_cog(LFGCog(self.bot))
+        self.bot.add_cog(LFGSettingsCog(self.bot))
         self.bot.add_cog(DevelopmentCog(self.bot))
         print(f'[{dt_now_as_text()}] cogs loaded')
 

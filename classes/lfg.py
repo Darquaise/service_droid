@@ -3,6 +3,8 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 import discord
 
+from converters import transform_time
+
 if TYPE_CHECKING:
     from .context import Context, ApplicationContext
 
@@ -11,18 +13,8 @@ class LFGNotAllowed:
     pass
 
 
-def transform_time(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed] | None:
-    if time_unit == 'days':
-        time = timedelta(days=time_amount)
-    elif time_unit == 'hours':
-        time = timedelta(hours=time_amount)
-    elif time_unit == 'minutes':
-        time = timedelta(minutes=time_amount)
-    elif time_unit == 'seconds':
-        time = timedelta(seconds=time_amount)
-    else:
-        return None
-
+def transform_time_lfg(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed] | None:
+    time = transform_time(time_amount, time_unit)
     return time if time > timedelta() else LFGNotAllowed
 
 
@@ -50,12 +42,12 @@ class LFGHost:
 
     def __init__(self, role: discord.Role, time_amount: int, time_unit: str):
         self.role = role
-        self.cooldown = transform_time(time_amount, time_unit)
+        self.cooldown = transform_time_lfg(time_amount, time_unit)
         self._amount = time_amount
         self._unit = time_unit
 
     def set_cooldown(self, amount: int, unit: str):
-        self.cooldown = transform_time(amount, unit)
+        self.cooldown = transform_time_lfg(amount, unit)
         self._amount = amount
         self._unit = unit
 

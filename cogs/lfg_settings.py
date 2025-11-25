@@ -1,11 +1,38 @@
 import discord
+from discord.ext import commands
 
-from classes import ServiceDroid, ApplicationContext, transform_time, LFGNotAllowed
+from classes import ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed
+from converters import TIME_UNITS
 
-time_units = ["days", "hours", "minutes", "seconds"]
 
 
-class SettingsCog(discord.Cog):
+def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
+    text = f"**LFG Channels**\n"
+    if len(ctx.g.lfg_channels.values()) == 0:
+        text += "None set"
+    else:
+        for lfg_channel in ctx.g.lfg_channels.values():
+            text += f"\n{lfg_channel.channel.mention}: {''.join([role.mention for role in lfg_channel.roles])}"
+
+    text += "\n\n**Host Roles**\n"
+    if len(ctx.g.host_roles.values()) == 0:
+        text += "None set"
+    else:
+        for role in ctx.g.host_roles.values():
+            text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
+
+    embed = discord.Embed(
+        title="LFG Settings",
+        description=text,
+        color=0xffd700
+    )
+
+    embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
+    embed.set_thumbnail(url=ctx.guild.icon.url)
+    return embed
+
+
+class LFGSettingsCog(discord.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
@@ -22,8 +49,8 @@ class SettingsCog(discord.Cog):
             self,
             ctx: ApplicationContext,
             role: discord.Role,
-            time_unit: discord.Option(description="Of what kind the given time will be", choices=time_units),
-            time_amount: discord.Option(name="amount", description="The amount of time", input_type=int)
+            time_unit: discord.Option(str, "Of what kind the given time will be", choices=TIME_UNITS),
+            time_amount: discord.Option(int, "The amount of time")
     ):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
@@ -32,7 +59,7 @@ class SettingsCog(discord.Cog):
             old_time = ctx.g.host_roles[role.id].cooldown
         else:
             old_time = None
-        new_time = transform_time(time_amount, time_unit)
+        new_time = transform_time_lfg(time_amount, time_unit)
 
         if not new_time:
             return await ctx.respond(
@@ -41,7 +68,7 @@ class SettingsCog(discord.Cog):
             )
 
         if new_time == old_time:
-            await ctx.respond(
+            return await ctx.respond(
                 f"The cooldown has been set to {time_amount} {time_unit}. Nothing changed.",
                 ephemeral=True
             )
@@ -54,11 +81,12 @@ class SettingsCog(discord.Cog):
                     ephemeral=True
                 )
 
-            await ctx.respond(
+            self.bot.settings.update_guilds()
+
+            return await ctx.respond(
                 f"The cooldown for {role.mention} has been set to {time_amount} {time_unit}.",
                 ephemeral=True
             )
-            self.bot.settings.update_guilds()
 
     @discord.slash_command(description="Removes a Host Role")
     @discord.default_permissions(administrator=True)
@@ -72,7 +100,7 @@ class SettingsCog(discord.Cog):
         del ctx.g.host_roles[role.id]
         self.bot.settings.update_settings()
 
-        await ctx.respond(
+        return await ctx.respond(
             f"{role.mention} isn't a Host Role anymore.",
             ephemeral=True
         )
@@ -128,6 +156,18 @@ class SettingsCog(discord.Cog):
 
         self.bot.settings.update_guilds()
 
+    @discord.slash_command(description="See how things are set up currently")
+    @discord.default_permissions(administrator=True)
+    async def current_settings_lfg(self, ctx: ApplicationContext):
+        embed = generate_settings_embed(ctx)
+        await ctx.respond(embed=embed)
+
+    @commands.command(name="current_settings_owner", hidden=True)
+    @commands.is_owner()
+    async def current_settings_lfg_owner(self, ctx: Context):
+        embed = generate_settings_embed(ctx)
+        await ctx.reply(embed=embed)
+
 
 def setup(bot):
-    bot.add_cog(SettingsCog(bot))
+    bot.add_cog(LFGSettingsCog(bot))
