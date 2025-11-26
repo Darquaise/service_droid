@@ -103,10 +103,12 @@ class Guild(GuildBase):
 
             cutoff = datetime.now() - galatron_cooldown
             galatron_last_used = {
-                member_id: ts
+                int(member_id): ts
                 for member_id, raw_ts in ga_data['last_used'].items()
                 if (ts := datetime.fromtimestamp(raw_ts)) < cutoff}
-            galatron_total_times_used = data['total_times_used'] if 'total_times_used' in data else {}
+            galatron_total_times_used = {
+                int(member_id): amount for member_id, amount in ga_data['total_times_used'].items()
+            } if 'total_times_used' in ga_data else {}
         else:
             galatron_role = None
             galatron_chance = 0.005
