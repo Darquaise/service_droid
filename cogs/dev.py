@@ -63,60 +63,6 @@ class DevelopmentCog(commands.Cog):
         await ctx.respond("Bot is restarting", ephemeral=True)
         await restart(self.bot)
 
-    @commands.slash_command(name='reload', description='Reload a Bots Cog', debug_guilds=[576380164250927124])
-    @discord.default_permissions(administrator=True)
-    async def reload_cog(self, ctx: discord.ApplicationContext, extension):
-        if extension == '*':
-            for filename in os.listdir('./cogs'):
-                if filename.endswith('.py'):
-                    self.bot.reload_extension(f'cogs.{filename[:-3]}')
-                    try:
-                        self.bot.reload_extension(f'cogs.{filename[:-3]}')
-                    except NameError:
-                        print(f'Reload had an error: {NameError}')
-                        break
-        else:
-            self.bot.reload_extension(f'cogs.{extension}')
-            print(f'Reloaded: {extension}')
-
-        await ctx.respond(f"`cogs.{extension}` has been reloaded", ephemeral=True)
-
-    @commands.slash_command(name='load', description='Load a Bots Cog', debug_guilds=[576380164250927124])
-    @discord.default_permissions(administrator=True)
-    async def load_cog(self, ctx: discord.ApplicationContext, extension):
-        if extension == '*':
-            for n in os.listdir('./cogs'):
-                if n.endswith('.py'):
-                    try:
-                        self.bot.load_extension(f'cogs.{n[:-3]}')
-                        print(f'Unloaded: {n}')
-
-                    except NameError:
-                        print(f'Load had an error: {NameError}')
-                        break
-        else:
-            self.bot.load_extension(f'cogs.{extension}')
-
-        await ctx.respond(f"`cogs.{extension}` has been loaded", ephemeral=True)
-
-    @commands.slash_command(name='unload', description='Unload a Bots Cog', debug_guilds=[576380164250927124])
-    async def unload_cog(self, ctx: discord.ApplicationContext, extension):
-        if extension == '*':
-            for n in os.listdir('./cogs'):
-                if n.endswith('.py'):
-                    try:
-                        self.bot.unload_extension(f'cogs.{n[:-3]}')
-                        print(f'Loaded: {n}')
-
-                    except NameError:
-                        print(f'Unload had an error: {NameError}')
-                        break
-
-        else:
-            self.bot.unload_extension(f'cogs.{extension}')
-
-        await ctx.respond(f"`cogs.{extension}` has been unloaded", ephemeral=True)
-
 
 def setup(bot):
     bot.add_cog(DevelopmentCog(bot))
