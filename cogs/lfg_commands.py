@@ -60,7 +60,7 @@ class LFGCog(discord.Cog):
         # send message with additional message if given
         lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(ctx.lfg.roles_str)}\n"
         if message:
-            await ctx.send(lfg_msg + discord.utils.escape_mentions(message))  # TODO: check if message is too long
+            await ctx.send((lfg_msg + discord.utils.escape_mentions(message)[:4000]))
         else:
             await ctx.send(lfg_msg)
 
@@ -102,7 +102,7 @@ class LFGCog(discord.Cog):
 
         lfg_msg = f"{ctx.author.mention} is looking for a game! {' '.join(ctx.lfg.roles_str)}\n"
         if message:
-            await ctx.send(lfg_msg + discord.utils.escape_mentions(message))  # TODO: check if message is too long
+            await ctx.send((lfg_msg + discord.utils.escape_mentions(message)[:4000]))
         else:
             await ctx.send(lfg_msg)
 
@@ -138,4 +138,4 @@ class LFGCog(discord.Cog):
 
 
 def setup(bot):
-    bot.add_cog(CustomCog(bot))
+    bot.add_cog(LFGCog(bot))
