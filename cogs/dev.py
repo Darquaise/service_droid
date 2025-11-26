@@ -2,7 +2,6 @@ import asyncio
 
 import discord
 from discord.ext import commands
-import os
 
 from classes import ServiceDroid
 
@@ -62,6 +61,11 @@ class DevelopmentCog(commands.Cog):
     async def restart(self, ctx: discord.ApplicationContext):
         await ctx.respond("Bot is restarting", ephemeral=True)
         await restart(self.bot)
+
+    @commands.slash_command(description="Check if Bot responds", debug_guilds=[576380164250927124])
+    @discord.default_permissions(administrator=True)
+    async def status(self, ctx: discord.ApplicationContext):
+        await ctx.respond("Bot is here!", ephemeral=True)
 
 
 def setup(bot):
