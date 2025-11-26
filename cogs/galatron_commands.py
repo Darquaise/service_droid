@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 
 from classes import ApplicationContext, ServiceDroid
-from converters.time import td2text
+from converters.time import td2text_long
 
 
 class TextGenerator:
@@ -164,7 +164,7 @@ class GalatronCog(commands.Cog):
     def _generate_leaderboard_embed(title, leaderboard) -> discord.Embed:
         lines = []
         for rank, (member, duration, amount) in enumerate(leaderboard[:10], start=1):
-            lines.append(f"**{rank}.** {member.mention} ({amount}x) – {td2text(duration)}")
+            lines.append(f"**{rank}.** {member.mention} ({amount}x) – {td2text_long(duration)}")
 
         return discord.Embed(
             title=title,

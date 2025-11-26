@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 
 from classes import ServiceDroid, ApplicationContext, Context
-from converters.time import td2text, TIME_UNITS, transform_time
+from classes.galatron import GalatronHistory
+from converters.time import td2text_long, TIME_UNITS, transform_time
 
 
 def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
@@ -13,7 +14,7 @@ def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
         text += ", ".join([ga_channel.mention for ga_channel in ctx.g.galatron_channels])
 
     text += f"\n\n**Role:** {ctx.galatron.role.mention if ctx.galatron.role else None}\n"
-    text += f"**Cooldown:** {td2text(ctx.g.galatron_cooldown)}\n"
+    text += f"**Cooldown:** {td2text_long(ctx.g.galatron_cooldown)}\n"
     text += f"**Chance:** {ctx.g.galatron_chance * 100}%\n"
 
     embed = discord.Embed(
@@ -121,3 +122,12 @@ class GalatronSettingsCog(discord.Cog):
     async def current_settings_galatron_owner(self, ctx: Context):
         embed = generate_settings_embed(ctx)
         await ctx.reply(embed=embed)
+
+    @discord.slash_command()
+    @discord.default_permissions(administrator=True)
+    async def galatron_reset(self, ctx: ApplicationContext):
+        ctx.g.galatron_history = GalatronHistory(ctx.guild, [])
+        ctx.g.galatron_last_used = {}
+        ctx.g.galatron_total_times_used = {}
+        self.bot.settings.update_guilds()
+        return await ctx.respond("Galatron reset complete!")

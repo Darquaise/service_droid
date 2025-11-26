@@ -9,7 +9,10 @@ def dt_now_as_text():
     return dt2text(datetime.now())
 
 
-def td2text(td: timedelta):
+def td2text_long(td: timedelta):
+    if td.total_seconds() == 0:
+        return None
+
     values = []
 
     if td.days > 1:
@@ -34,6 +37,30 @@ def td2text(td: timedelta):
         values.append(f"{seconds} seconds")
     elif seconds == 1:
         values.append("1 second")
+
+    return values[0] if len(values) == 1 else " and ".join([", ".join(values[:-1]), values[-1]])
+
+
+def td2text(td: timedelta):
+    if td.total_seconds() == 0:
+        return None
+
+    values = []
+
+    if td.days >= 1:
+        values.append(f"{td.days}d")
+
+    hours, remainder = divmod(td.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if hours >= 1:
+        values.append(f"{hours}h")
+
+    if minutes >= 1:
+        values.append(f"{minutes}m")
+
+    if seconds >= 1:
+        values.append(f"{seconds}s")
 
     return values[0] if len(values) == 1 else " and ".join([", ".join(values[:-1]), values[-1]])
 
