@@ -1,9 +1,9 @@
 import discord
 from discord.ext import commands
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from classes import ApplicationContext, ServiceDroid
+from classes import ApplicationContext, ServiceDroid, GalatronStatsView
 from converters.time import td2text_long
 
 
@@ -234,6 +234,7 @@ class GalatronCog(commands.Cog):
             )
             return await ctx.respond(embed=embed)
         else:
+            self.bot.settings.update_guilds()
             flavour = TextGenerator.fail_text_main()
             if old_owner:
                 owner_line = " " + TextGenerator.fail_owner_bound(old_owner.mention)
@@ -287,6 +288,36 @@ class GalatronCog(commands.Cog):
         title = "Galatron Leaderboard – All-Time"
         return await ctx.respond(embed=self._generate_leaderboard_embed(title, leaderboard))
 
+    @discord.slash_command()
+    async def galatron_stats(self, ctx: ApplicationContext):
+        if not ctx.galatron.is_galatron_channel:
+            return await ctx.respond(
+                TextGenerator.wrong_channel(),
+                ephemeral=True
+            )
 
-def setup(bot: commands.Bot):
+        leaderboard_by_id = {
+            int(member.id): (member, total_duration, total_got)
+            for member, total_duration, total_got in ctx.g.galatron_history.calculate_leaderboard()
+        }
+
+        stats: list[tuple[discord.Member, int, int, timedelta]] = []
+        for member_id, total_uses in ctx.g.galatron_total_times_used.items():
+            if member_id in leaderboard_by_id.keys():
+                member, total_duration, total_got = leaderboard_by_id[member_id]
+            else:
+                member = ctx.guild.get_member(member_id)
+                total_got = 0
+                total_duration = timedelta()
+
+            stats.append((member, total_uses, total_got, total_duration))
+
+        stats.sort(key=lambda x: x[1], reverse=True)
+
+        view = GalatronStatsView(ctx, stats)
+        embed = view.build_embed(0)
+        return await ctx.respond(embed=embed, view=view)
+
+
+def setup(bot: ServiceDroid):
     bot.add_cog(GalatronCog(bot))
