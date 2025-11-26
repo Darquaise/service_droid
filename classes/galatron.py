@@ -47,7 +47,7 @@ class GalatronHistory:
 
     def add_entry(self, member: discord.Member, timestamp: datetime = None):
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = datetime.now().replace(microsecond=0)
 
         self.history.append({"timestamp": timestamp.timestamp(), "member_id": member.id})
 

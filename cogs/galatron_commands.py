@@ -201,7 +201,7 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        ctx.g.galatron_last_used[member_id] = datetime.now()
+        ctx.g.galatron_last_used[member_id] = datetime.now().replace(microsecond=0)
 
         if member_id not in ctx.g.galatron_total_times_used:
             ctx.g.galatron_total_times_used[member_id] = 0
