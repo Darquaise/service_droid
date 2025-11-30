@@ -1,10 +1,15 @@
 import discord
 from discord.ext import commands
+import math
 import random
 from datetime import datetime, timedelta
 
 from classes import ApplicationContext, ServiceDroid, GalatronStatsView
 from converters.time import td2text_long
+
+
+def binom_p(n, p, k):
+    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
 
 
 class TextGenerator:
@@ -154,6 +159,13 @@ class TextGenerator:
         ]
         return random.choice(texts)
 
+    @staticmethod
+    def no_trys_yet() -> str:
+        texts = [
+            "Noone has ever tried achieving the Galatron."
+        ]
+        return random.choice(texts)
+
 
 class GalatronCog(commands.Cog):
 
@@ -172,11 +184,7 @@ class GalatronCog(commands.Cog):
             color=discord.Color.purple()
         )
 
-    @discord.slash_command(
-        name="attempt_galatron",
-        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
-    )
-    async def galatron_command(self, ctx: ApplicationContext):
+    async def get_galatron(self, ctx: ApplicationContext):
         if not ctx.galatron.role:
             return await ctx.respond("This feature hasn't been set up by your admins yet.")
 
@@ -249,10 +257,21 @@ class GalatronCog(commands.Cog):
             return await ctx.respond(embed=embed)
 
     @discord.slash_command(
-        name="locate_galatron",
-        description="Reveal the current location of the Galatron and its chosen bearer."
+        name="attempt_galatron",
+        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
     )
-    async def locate_galatron(self, ctx: ApplicationContext):
+    async def command_attempt_galatron(self, ctx: ApplicationContext):
+        await self.get_galatron(ctx)
+
+    @discord.slash_command(
+        name="galatron_attempt",
+        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
+    )
+    async def command_galatron_attempt(self, ctx: ApplicationContext):
+        await self.get_galatron(ctx)
+
+    @staticmethod
+    async def locate_galatron(ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
             return await ctx.respond(
                 TextGenerator.wrong_channel(),
@@ -271,6 +290,20 @@ class GalatronCog(commands.Cog):
             color=discord.Color.blue()
         )
         return await ctx.respond(embed=embed)
+
+    @discord.slash_command(
+        name="locate_galatron",
+        description="Reveal the current location of the Galatron and its chosen bearer."
+    )
+    async def command_locate_galatron(self, ctx: ApplicationContext):
+        await self.locate_galatron(ctx)
+
+    @discord.slash_command(
+        name="galatron_locate",
+        description="Reveal the current location of the Galatron and its chosen bearer."
+    )
+    async def command_galatron_locate(self, ctx: ApplicationContext):
+        await self.locate_galatron(ctx)
 
     @discord.slash_command(description="Show the all-time leaderboard of Galatron bearers.")
     async def galatron_leaderboard(self, ctx: ApplicationContext):
@@ -317,6 +350,39 @@ class GalatronCog(commands.Cog):
         view = GalatronStatsView(ctx, stats)
         embed = view.build_embed(0)
         return await ctx.respond(embed=embed, view=view)
+
+    @discord.slash_command()
+    async def galatron_stats_total(self, ctx: ApplicationContext):
+        if not ctx.galatron.is_galatron_channel:
+            return await ctx.respond(
+                TextGenerator.wrong_channel(),
+                ephemeral=True
+            )
+
+        if not len(ctx.g.galatron_total_times_used) > 0:
+            return await ctx.respond(
+                TextGenerator.no_trys_yet(),
+            )
+
+        individual_users = len(ctx.g.galatron_total_times_used)
+        total_uses = sum(ctx.g.galatron_total_times_used.values())  # 300
+        total_received = len(ctx.g.galatron_history.history)  # 1
+
+        percent_gotten = total_received / total_uses * 100 if total_received > 0 else 0
+
+        cumulative_chance = 1 - sum(
+            [binom_p(total_uses + 1, ctx.g.galatron_chance, k) for k in range(total_received + 1)])
+        exact_chance = binom_p(total_uses + 1, ctx.g.galatron_chance, total_received + 1)
+
+        embed = discord.Embed(
+            title="Galatron Stats Total",
+            description=f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
+                        f"**Total received:** {total_received} ({round(percent_gotten, 3)})\n"
+                        f"**Cumulative chance:** {round(cumulative_chance, 3)}%\n"
+                        f"**Exact chance:** {round(exact_chance, 3)}%",
+        )
+
+        return await ctx.respond(embed=embed)
 
 
 def setup(bot: ServiceDroid):
