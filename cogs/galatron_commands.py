@@ -377,9 +377,9 @@ class GalatronCog(commands.Cog):
         embed = discord.Embed(
             title="Galatron Stats Total",
             description=f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
-                        f"**Total received:** {total_received} ({round(percent_gotten, 3)})\n"
-                        f"**Cumulative chance:** {round(cumulative_chance, 3)}%\n"
-                        f"**Exact chance:** {round(exact_chance, 3)}%",
+                        f"**Total received:** {total_received} ({round(percent_gotten, 2)}%)\n"
+                        f"**Cumulative chance:** {round(cumulative_chance * 100, 2)}%\n"
+                        f"**Exact chance:** {round(exact_chance * 100, 2)}%",
         )
 
         return await ctx.respond(embed=embed)
