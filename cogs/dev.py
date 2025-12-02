@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from classes import ServiceDroid
 
-REPO_PATH = "/home/bot/bots/service_droid"
+REPO_PATH = "/root/bots/service_droid"
 
 
 async def shutdown(bot: ServiceDroid):
