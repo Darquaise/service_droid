@@ -378,7 +378,7 @@ class GalatronCog(commands.Cog):
             title="Galatron Stats Total",
             description=f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
                         f"**Total received:** {total_received} ({round(percent_gotten, 2)}%)\n"
-                        f"**Cumulative chance:** {round(cumulative_chance * 100, 2)}%\n"
+                        f"**Cumulative chance:** {round(cumulative_chance * 100, 2)}% [*](https://onlinestatbook.com/2/probability/binomial.html)\n"
                         f"**Exact chance:** {round(exact_chance * 100, 2)}%",
         )
 
