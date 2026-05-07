@@ -13,9 +13,11 @@ class LFGNotAllowed:
     pass
 
 
-def transform_time_lfg(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed] | None:
+def transform_time_lfg(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed]:
     time = transform_time(time_amount, time_unit)
-    return time if time > timedelta() else LFGNotAllowed
+    if time is None or time <= timedelta():
+        return LFGNotAllowed
+    return time
 
 
 class LFGData:
@@ -34,7 +36,10 @@ class LFGData:
 
     @property
     def roles_str(self) -> list[str]:
-        return [role.mention for role in self.roles]
+        roles = self.roles
+        if roles is None:
+            return []
+        return [role.mention for role in roles]
 
 
 class LFGHost:

@@ -5,7 +5,6 @@ from classes import ServiceDroid, ApplicationContext, Context, transform_time_lf
 from converters import TIME_UNITS
 
 
-
 def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
     text = f"**LFG Channels**\n"
     if len(ctx.g.lfg_channels.values()) == 0:

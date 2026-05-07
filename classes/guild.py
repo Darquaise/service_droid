@@ -9,9 +9,11 @@ from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 
 class Guild(GuildBase):
     __slots__ = (
-            GuildBase.__slots__ + (
-        "host_roles", "lfg_channels", "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
-        "galatron_history", "galatron_last_used", "galatron_total_times_used"))
+        "host_roles", "lfg_channels",
+        "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
+        "galatron_history", "galatron_last_used", "galatron_total_times_used",
+        "trivia_channels", "trivia_mode",
+    )
 
     def __init__(
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
@@ -87,6 +89,7 @@ class Guild(GuildBase):
         for channel_data in data['channels']:
             channel_id = int(channel_data['id'])
             channel = guild.get_channel(channel_id)
+            assert isinstance(channel, discord.TextChannel)
             if channel:
                 lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
             else:
@@ -98,7 +101,10 @@ class Guild(GuildBase):
             galatron_role = guild.get_role(ga_data['role'])
             galatron_chance = ga_data['chance']
             galatron_cooldown = timedelta(seconds=ga_data['cooldown'])
-            galatron_channels = [guild.get_channel(channel_id) for channel_id in ga_data['channels']]
+            galatron_channels = [
+                c for c in (guild.get_channel(cid) for cid in ga_data['channels'])
+                if isinstance(c, discord.TextChannel)
+            ]
             galatron_history = GalatronHistory(guild, ga_data['history'])
 
             cutoff = datetime.now() - galatron_cooldown

@@ -1,4 +1,6 @@
 import json
+from collections.abc import Mapping
+from typing import Any
 
 
 def read_json(path: str):
@@ -7,6 +9,6 @@ def read_json(path: str):
     return data
 
 
-def write_json(path: str, data: dict | list):
+def write_json(path: str, data: Mapping[str, Any] | list):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)

@@ -4,7 +4,7 @@ import math
 from datetime import timedelta
 
 from converters import td2text
-from .context import ApplicationContext
+from .context import ApplicationContext, Interaction
 
 PAGE_SIZE = 20
 
@@ -43,11 +43,11 @@ class GalatronStatsView(View):
             if len(name) > longest_name:
                 longest_name = len(name)
 
-        lines = [f"{'Name'.ljust(longest_name)} | Trys | Success | Duration"]
+        lines = [f"{'Name'.ljust(longest_name)} | Tries | Success | Duration"]
 
         for i, (member, total_uses, total_got, total_duration) in enumerate(page_entries):
             lines.append(
-                f"{names[i].ljust(longest_name)} | {str(total_uses).rjust(4)} | {str(total_got).rjust(7)} | {td2text(total_duration)}"
+                f"{names[i].ljust(longest_name)} | {str(total_uses).rjust(5)} | {str(total_got).rjust(7)} | {td2text(total_duration)}"
             )
 
         embed = discord.Embed(
@@ -63,14 +63,13 @@ class GalatronStatsView(View):
         self.prev_button.disabled = self.current_page <= 0
         self.next_button.disabled = self.current_page >= page_count - 1
 
-    async def _edit(self, interaction: discord.Interaction):
+    async def _edit(self, interaction: Interaction):
         self._update_button_states()
         embed = self.build_embed(self.current_page)
         await interaction.response.edit_message(embed=embed, view=self)
 
     @button(label="⬅️")
-    async def prev_button(self, _: discord.ui.Button, interaction: discord.Interaction):
-        # optional: nur Command-Author darf klicken
+    async def prev_button(self, _: discord.ui.Button, interaction: Interaction):
         if interaction.user.id != self.ctx.user.id:
             return await interaction.response.defer()
 
@@ -80,8 +79,7 @@ class GalatronStatsView(View):
         return await self._edit(interaction)
 
     @button(label="➡️")
-    async def next_button(self, _: discord.ui.Button, interaction: discord.Interaction):
-        # optional: nur Command-Author darf klicken
+    async def next_button(self, _: discord.ui.Button, interaction: Interaction):
         if interaction.user.id != self.ctx.user.id:
             return await interaction.response.defer()
 

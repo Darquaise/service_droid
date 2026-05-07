@@ -340,6 +340,8 @@ class GalatronCog(commands.Cog):
                 member, total_duration, total_got = leaderboard_by_id[member_id]
             else:
                 member = ctx.guild.get_member(member_id)
+                if not member:
+                    continue
                 total_got = 0
                 total_duration = timedelta()
 

@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 import discord
 
 if TYPE_CHECKING:
-    from .context import Context, ApplicationContext
+    from .context import ApplicationContext
 
 
 class GalatronData:
-    def __init__(self, ctx: Context | ApplicationContext):
+    def __init__(self, ctx: ApplicationContext):
         self._ctx = ctx
 
     @property
@@ -27,7 +27,10 @@ class GalatronData:
 
     @property
     def is_current_owner(self) -> bool:
-        return self._ctx.user.id == self.current_owner.id if self.current_owner else None
+        owner = self.current_owner
+        if owner is None:
+            return False
+        return self._ctx.user.id == owner.id
 
     @property
     def current_owner(self) -> discord.Member | None:
@@ -49,7 +52,7 @@ class GalatronHistory:
         if timestamp is None:
             timestamp = datetime.now().replace(microsecond=0)
 
-        self.history.append({"timestamp": timestamp.timestamp(), "member_id": member.id})
+        self.history.append({"timestamp": int(timestamp.timestamp()), "member_id": member.id})
 
     def get_current_owner(self) -> discord.Member | None:
         if len(self.history) == 0:

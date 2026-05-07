@@ -43,7 +43,7 @@ def td2text_long(td: timedelta):
 
 def td2text(td: timedelta):
     if td.total_seconds() == 0:
-        return None
+        return "/"
 
     values = []
 

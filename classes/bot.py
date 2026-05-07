@@ -16,3 +16,13 @@ class ServiceDroid(commands.Bot):
 
     async def get_application_context(self, interaction: discord.Interaction, cls=ApplicationContext):
         return await super().get_application_context(interaction, cls=cls)
+
+    async def on_message(self, message: discord.Message) -> None:
+        if message.guild is None:
+            return
+        await self.process_commands(message)
+
+    async def process_application_commands(self, interaction: discord.Interaction, *args, **kwargs) -> None:
+        if interaction.guild_id is None:
+            return
+        await super().process_application_commands(interaction, *args, **kwargs)

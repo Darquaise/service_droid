@@ -2,3 +2,7 @@
 token
 settings.json
 guilds.json
+trivia/*
+!trivia/.gitkeep
+/.idea/
+test.py
