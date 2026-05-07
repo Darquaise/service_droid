@@ -1,9 +1,14 @@
 import asyncio
+from pathlib import Path
 
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid
+from classes import ServiceDroid, LogView, TriviaHandler, TriviaQuestion
+from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
+
+REPO_PATH = str(Path(__file__).resolve().parent.parent)
+LOG_PATH = f"{REPO_PATH}/logs/latest.log"
 
 REPO_PATH = "/root/bots/service_droid"
 
@@ -66,6 +71,23 @@ class DevelopmentCog(commands.Cog):
     @discord.default_permissions(administrator=True)
     async def status(self, ctx: discord.ApplicationContext):
         await ctx.respond("Bot is here!", ephemeral=True)
+
+    @discord.slash_command(description="Show the bot's terminal log", debug_guilds=[576380164250927124])
+    @discord.default_permissions(administrator=True)
+    async def log(
+            self,
+            ctx: discord.ApplicationContext,
+            lines_per_page: discord.Option(
+                int,
+                "Lines per page",
+                required=False,
+                default=DEFAULT_LINES_PER_PAGE,
+                choices=LINES_PER_PAGE_OPTIONS,
+            ) = DEFAULT_LINES_PER_PAGE,
+    ):
+        await ctx.defer(ephemeral=True)
+        view = LogView(ctx, LOG_PATH, lines_per_page=lines_per_page)
+        await ctx.followup.send(embed=view.build_embed(), view=view, ephemeral=True)
 
 
 def setup(bot):

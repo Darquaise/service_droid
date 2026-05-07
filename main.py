@@ -26,7 +26,13 @@ with open("token", "r") as f:
 
 # preload startup cog and start bot
 bot.add_cog(StartupCog(bot))
-bot.run(token=token)
+try:
+    bot.run(token=token)
+except RuntimeError as e:
+    if getattr(bot, "exit_code", 0) == 0:
+        raise
+    print(f"bot.run raised during requested shutdown: {e}")
+
 code = getattr(bot, "exit_code", 0)
 print("code:", code)
 if code != 0:

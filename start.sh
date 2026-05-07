@@ -1,3 +1,6 @@
 #!/bin/bash
 
-screen -AmdS service_droid /home/bot/bots/service_droid/.start.sh
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO"
+mkdir -p "$REPO/logs"
+screen -AmdS service_droid "$REPO/.start.sh"
