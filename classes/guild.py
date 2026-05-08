@@ -117,7 +117,7 @@ class Guild(GuildBase):
             galatron_last_used = {
                 int(member_id): ts
                 for member_id, raw_ts in ga_data['last_used'].items()
-                if (ts := datetime.fromtimestamp(raw_ts)) < cutoff}
+                if (ts := datetime.fromtimestamp(raw_ts)) >= cutoff}
             galatron_total_times_used = {
                 int(member_id): amount for member_id, amount in ga_data['total_times_used'].items()
             } if 'total_times_used' in ga_data else {}
