@@ -313,7 +313,7 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        leaderboard = sorted(ctx.g.galatron_history.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
+        leaderboard = sorted(await ctx.g.galatron_history.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
 
         if not leaderboard:
             return await ctx.respond(TextGenerator.no_leaderboard_entries())
@@ -331,7 +331,7 @@ class GalatronCog(commands.Cog):
 
         leaderboard_by_id = {
             int(member.id): (member, total_duration, total_got)
-            for member, total_duration, total_got in ctx.g.galatron_history.calculate_leaderboard()
+            for member, total_duration, total_got in await ctx.g.galatron_history.calculate_leaderboard()
         }
 
         stats: list[tuple[discord.Member, int, int, timedelta]] = []

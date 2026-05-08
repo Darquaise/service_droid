@@ -59,7 +59,7 @@ class GalatronHistory:
             return None
         return self.guild.get_member(self.history[-1]["member_id"])
 
-    def calculate_leaderboard(self) -> list[tuple[discord.Member, timedelta, int]]:
+    async def calculate_leaderboard(self) -> list[tuple[discord.Member, timedelta, int]]:
         member_times: dict[int, list] = {}
         times_received: dict[int, int] = {}
 
@@ -73,7 +73,10 @@ class GalatronHistory:
             if member_id not in member_times:
                 member = self.guild.get_member(member_id)
                 if not member:
-                    member = self.guild.fetch_member(member_id)
+                    try:
+                        member = await self.guild.fetch_member(member_id)
+                    except discord.NotFound:
+                        member = None
 
                 member_times[member_id] = [member, timedelta()]
                 times_received[member_id] = 0
