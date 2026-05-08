@@ -1,4 +1,6 @@
 import asyncio
+import io
+import json
 from pathlib import Path
 
 import discord
@@ -10,7 +12,18 @@ from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
 REPO_PATH = str(Path(__file__).resolve().parent.parent)
 LOG_PATH = f"{REPO_PATH}/logs/latest.log"
 
-REPO_PATH = "/root/bots/service_droid"
+
+async def _guild_autocomplete(ctx: discord.AutocompleteContext) -> list[discord.OptionChoice]:
+    bot = ctx.interaction.client
+    query = (ctx.value or "").lower()
+    results: list[discord.OptionChoice] = []
+    for g in bot.guilds:
+        if not query or query in g.name.lower() or query in str(g.id):
+            label = f"{g.name} ({g.id})"[:100]
+            results.append(discord.OptionChoice(name=label, value=str(g.id)))
+        if len(results) >= 25:
+            break
+    return results
 
 
 async def shutdown(bot: ServiceDroid):
@@ -88,6 +101,142 @@ class DevelopmentCog(commands.Cog):
         await ctx.defer(ephemeral=True)
         view = LogView(ctx, LOG_PATH, lines_per_page=lines_per_page)
         await ctx.followup.send(embed=view.build_embed(), view=view, ephemeral=True)
+
+    @discord.slash_command(
+        description="Export bot settings.",
+        debug_guilds=[576380164250927124],
+    )
+    @discord.default_permissions(administrator=True)
+    async def export_settings(self, ctx: discord.ApplicationContext):
+        await ctx.defer(ephemeral=True)
+
+        settings_data = self.bot.settings.to_dict()
+        guilds_data = self.bot.settings.get_live_guilds_dict()
+
+        files = [
+            discord.File(
+                io.BytesIO(json.dumps(settings_data, indent=2).encode("utf-8")),
+                filename="settings.json",
+            ),
+            discord.File(
+                io.BytesIO(json.dumps(guilds_data, indent=2, default=str).encode("utf-8")),
+                filename="guilds.json",
+            ),
+        ]
+
+        await ctx.followup.send(
+            "Settings export.", files=files, ephemeral=True,
+        )
+
+    @discord.slash_command(
+        description="Export a guild's trivia questions as JSON.",
+        debug_guilds=[576380164250927124],
+    )
+    @discord.default_permissions(administrator=True)
+    async def export_trivia(
+            self,
+            ctx: discord.ApplicationContext,
+            guild_id: discord.Option(
+                str, "Server", autocomplete=_guild_autocomplete,
+            ),
+    ):
+        await ctx.defer(ephemeral=True)
+
+        try:
+            gid = int(guild_id)
+        except ValueError:
+            return await ctx.followup.send("Invalid guild ID.", ephemeral=True)
+
+        guild = self.bot.get_guild(gid)
+        if guild is None:
+            return await ctx.followup.send(
+                f"Bot is not in guild `{gid}`.", ephemeral=True,
+            )
+
+        trivia_data = self.bot.settings.get_live_trivia_dict(gid)
+        if not trivia_data:
+            return await ctx.followup.send(
+                f"**{guild.name}** has no trivia data yet.", ephemeral=True,
+            )
+
+        buf = io.BytesIO(json.dumps(trivia_data, indent=2).encode("utf-8"))
+        return await ctx.followup.send(
+            f"Trivia export for **{guild.name}** (`{gid}`).",
+            file=discord.File(buf, filename=f"trivia_{gid}.json"),
+            ephemeral=True,
+        )
+
+    @discord.slash_command(
+        description="Inject a trivia JSON into a chosen guild.",
+        debug_guilds=[576380164250927124],
+    )
+    @discord.default_permissions(administrator=True)
+    async def inject_trivia(
+            self,
+            ctx: discord.ApplicationContext,
+            guild_id: discord.Option(
+                str, "Target server", autocomplete=_guild_autocomplete,
+            ),
+            attachment: discord.Option(
+                discord.Attachment,
+                "JSON file: {list_name: [{id, title, question, answer, answer_context}, ...]}",
+            ),
+            mode: discord.Option(
+                str,
+                "replace = overwrite all lists, merge = overwrite list-by-list",
+                choices=["replace", "merge"],
+                default="replace",
+            ) = "replace",
+    ):
+        await ctx.defer(ephemeral=True)
+
+        guild_id = int(guild_id)
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            return await ctx.followup.send(f"Bot is not in guild `{guild_id}`.", ephemeral=True)
+
+        if not attachment.filename.lower().endswith(".json"):
+            return await ctx.followup.send("Attachment must be a `.json` file.", ephemeral=True)
+
+        try:
+            raw = await attachment.read()
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            return await ctx.followup.send(f"Invalid JSON: `{e}`", ephemeral=True)
+
+        if not isinstance(data, dict):
+            return await ctx.followup.send(
+                "Top-level JSON must be an object mapping list names to question arrays.", ephemeral=True
+            )
+
+        new_lists: dict[str, list[TriviaQuestion]] = {}
+        for list_name, questions in data.items():
+            if not isinstance(list_name, str) or not isinstance(questions, list):
+                return await ctx.followup.send(
+                    f"Invalid entry `{list_name}`: must be a list of question objects.", ephemeral=True
+                )
+            try:
+                new_lists[list_name] = [TriviaQuestion.from_json(q) for q in questions]
+            except (KeyError, TypeError, ValueError) as e:
+                return await ctx.followup.send(
+                    f"Invalid question in list **{list_name}**: `{e}`", ephemeral=True
+                )
+
+        handler = TriviaHandler.get_or_create(guild)
+        if mode == "replace":
+            handler.lists = new_lists
+        else:
+            for name, qs in new_lists.items():
+                handler.lists[name] = qs
+
+        self.bot.settings.update_trivia(guild_id)
+
+        counts = ", ".join(f"**{n}** ({len(q)})" for n, q in new_lists.items()) or "—"
+        return await ctx.followup.send(
+            f"Trivia for **{guild.name}** (`{guild_id}`) {mode}d.\n"
+            f"Lists in payload: {counts}",
+            ephemeral=True,
+        )
 
 
 def setup(bot):
