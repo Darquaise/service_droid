@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+import asyncio
+import random
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+import discord
+
+from converters import dt_now_as_text
+from .trivia import TriviaChannelConfig, TriviaHandler, TriviaQuestion
+from .trivia_modes import (
+    MODE_AI,
+    MODE_AI_TIMED,
+    MODE_TIMED,
+    ORDER_SEQUENTIAL,
+)
+
+if TYPE_CHECKING:
+    from .bot import ServiceDroid
+
+
+def _log(msg: str) -> None:
+    print(f"[{dt_now_as_text()}] [trivia] {msg}")
+
+
+class TriviaScheduler:
+    def __init__(self, bot: "ServiceDroid"):
+        self.bot = bot
+        self._question_tasks: dict[int, asyncio.Task] = {}
+        self._answer_tasks: dict[int, asyncio.Task] = {}
+
+    def schedule_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
+        self.cancel_channel(channel_id)
+        task = self.bot.loop.create_task(
+            self._loop_for_channel(channel_id, config),
+            name=f"trivia-loop-{channel_id}",
+        )
+        self._question_tasks[channel_id] = task
+
+    def cancel_channel(self, channel_id: int) -> None:
+        task = self._question_tasks.pop(channel_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+        answer = self._answer_tasks.pop(channel_id, None)
+        if answer is not None and not answer.done():
+            answer.cancel()
+
+    def cancel_all(self) -> None:
+        for cid in list(self._question_tasks):
+            self.cancel_channel(cid)
+
+    async def _loop_for_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
+        try:
+            while True:
+                now = datetime.now(timezone.utc)
+                try:
+                    next_fire = config.next_fire(now)
+                except Exception as e:
+                    _log(f"channel {channel_id}: invalid cron `{config.schedule}` ({e}); stopping loop")
+                    return
+
+                sleep_seconds = max(0.0, (next_fire - now).total_seconds())
+                await asyncio.sleep(sleep_seconds)
+
+                try:
+                    await self._fire(channel_id, config)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    _log(f"channel {channel_id}: error firing question: {e!r}")
+                    # keep looping — next iteration recomputes the next cron tick
+        except asyncio.CancelledError:
+            pass
+
+    async def _fire(self, channel_id: int, config: TriviaChannelConfig) -> None:
+        channel = self.bot.get_channel(channel_id)
+        if channel is None or not isinstance(channel, discord.TextChannel):
+            _log(f"channel {channel_id}: not accessible, skipping")
+            return
+
+        handler = TriviaHandler.get(channel.guild.id)
+        if handler is None or not handler.has_list(config.list_name):
+            _log(f"channel {channel_id}: list `{config.list_name}` missing, skipping")
+            return
+
+        questions = handler.lists[config.list_name]
+        if not questions:
+            _log(f"channel {channel_id}: list `{config.list_name}` is empty, skipping")
+            return
+
+        question = self._pick_question(config, questions)
+
+        if config.mode == MODE_TIMED:
+            await self._fire_timed(channel, config, question)
+        elif config.mode in (MODE_AI, MODE_AI_TIMED):
+            # not implemented yet — fall back to timed reveal so nothing breaks
+            _log(f"channel {channel_id}: mode `{config.mode}` not implemented, falling back to timed")
+            await self._fire_timed(channel, config, question)
+        else:
+            _log(f"channel {channel_id}: unknown mode `{config.mode}`, skipping")
+
+    @staticmethod
+    def _pick_question(
+            config: TriviaChannelConfig, questions: list[TriviaQuestion]
+    ) -> TriviaQuestion:
+        if config.order == ORDER_SEQUENTIAL:
+            return questions[config.next_index(len(questions))]
+        return random.choice(questions)
+
+    # -- TIMED mode ----------------------------------------------------------
+
+    async def _fire_timed(
+            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion,
+    ) -> None:
+        question_text = question.question[0] if question.question else ""
+        embed = discord.Embed(
+            title=f"Trivia: {question.title}",
+            description=question_text,
+            colour=0xffd700,
+        )
+        embed.set_footer(text=f"Answer in {config.response}s")
+        await channel.send(embed=embed)
+
+        # Schedule the answer reveal as its own one-shot task — when it finishes,
+        # the question loop is already waiting for the next cron tick.
+        prev = self._answer_tasks.pop(channel.id, None)
+        if prev is not None and not prev.done():
+            prev.cancel()
+
+        task = self.bot.loop.create_task(
+            self._reveal_answer(channel, config, question),
+            name=f"trivia-answer-{channel.id}",
+        )
+        self._answer_tasks[channel.id] = task
+
+    async def _reveal_answer(
+            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion,
+    ) -> None:
+        try:
+            await asyncio.sleep(config.response)
+            description = f"**{question.answer}**"
+            if question.answer_context:
+                description += f"\n\n{question.answer_context}"
+            embed = discord.Embed(
+                title=f"Answer: {question.title}",
+                description=description,
+                colour=0x2ecc71,
+            )
+            await channel.send(embed=embed)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            _log(f"channel {channel.id}: failed to send answer: {e!r}")
+        finally:
+            self._answer_tasks.pop(channel.id, None)

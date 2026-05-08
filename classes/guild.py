@@ -5,6 +5,7 @@ from datetime import timedelta, datetime
 from .base.guildbase import GuildBase
 from .galatron import GalatronHistory
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
+from .trivia import TriviaChannelConfig
 
 
 class Guild(GuildBase):
@@ -19,7 +20,8 @@ class Guild(GuildBase):
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
             galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
             galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
-            galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int]
+            galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int],
+            trivia_channels: dict[int, TriviaChannelConfig], trivia_mode: str
     ):
         super().__init__(guild)
 
@@ -35,6 +37,10 @@ class Guild(GuildBase):
         self.galatron_history = galatron_history
         self.galatron_last_used = galatron_last_used
         self.galatron_total_times_used = galatron_total_times_used
+
+        # trivia stuff
+        self.trivia_channels = trivia_channels
+        self.trivia_mode = trivia_mode
 
         self._instances[self.id] = self
 
@@ -124,10 +130,23 @@ class Guild(GuildBase):
             galatron_last_used = {}
             galatron_total_times_used = {}
 
+        # trivia stuff
+        if "trivia" in data:
+            tr_data = data['trivia']
+            trivia_channels = {
+                int(channel_id): TriviaChannelConfig.from_json(int(channel_id), cfg_data)
+                for channel_id, cfg_data in tr_data.get('channels', {}).items()
+            }
+            trivia_mode = tr_data.get('mode', "NT")
+        else:
+            trivia_channels = {}
+            trivia_mode = "NT"
+
         return cls(
             guild, host_roles, lfg_channels,
             galatron_role, galatron_chance, galatron_cooldown, galatron_channels,
-            galatron_history, galatron_last_used, galatron_total_times_used
+            galatron_history, galatron_last_used, galatron_total_times_used,
+            trivia_channels, trivia_mode
         )
 
     def to_json(self):
@@ -144,9 +163,16 @@ class Guild(GuildBase):
                 "last_used": {member_id: timestamp.timestamp() for member_id, timestamp in
                               self.galatron_last_used.items()},
                 "total_times_used": self.galatron_total_times_used
+            },
+            "trivia": {
+                "channels": {str(cid): cfg.to_json() for cid, cfg in self.trivia_channels.items()},
+                "mode": self.trivia_mode
             }
         }
 
     @classmethod
     def from_nothing(cls, guild: discord.Guild):
-        return cls(guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {}, {})
+        return cls(
+            guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {}, {},
+            {}, "NT"
+        )

@@ -5,3 +5,7 @@ from .guild import Guild
 from .lfg import LFGNotAllowed, transform_time_lfg
 from .galatron_stats_view import GalatronStatsView
 from .log_view import LogView
+from .trivia import TriviaHandler, TriviaQuestion, TriviaChannelConfig
+from .trivia_views import TriviaQuestionPaginatorView
+from .trivia_scheduler import TriviaScheduler
+from . import trivia_modes

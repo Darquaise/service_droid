@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid, Guild
+from classes import ServiceDroid, Guild, TriviaHandler
 from cogs.events import EventsCog
 from cogs.galatron_commands import GalatronCog
 from cogs.galatron_settings import GalatronSettingsCog
@@ -10,6 +10,8 @@ from converters.time import dt_now_as_text
 from cogs.lfg_commands import LFGCog
 from cogs.lfg_settings import LFGSettingsCog
 from cogs.dev import DevelopmentCog
+from cogs.trivia import TriviaCog
+from cogs.trivia_settings import TriviaSettingsCog
 
 
 class StartupCog(commands.Cog):
@@ -40,6 +42,9 @@ class StartupCog(commands.Cog):
                 Guild.from_nothing(guild)
         self.bot.settings.update_guilds()
 
+        # --> load trivia handlers
+        TriviaHandler.load_all(self.bot.settings.trivia_path, self.bot)
+
         # --> load cogs
         print(f'[{dt_now_as_text()}] loading cogs...')
         self.bot.add_cog(LFGCog(self.bot))
@@ -48,6 +53,8 @@ class StartupCog(commands.Cog):
         self.bot.add_cog(GalatronSettingsCog(self.bot))
         self.bot.add_cog(DevelopmentCog(self.bot))
         self.bot.add_cog(EventsCog(self.bot))
+        self.bot.add_cog(TriviaCog(self.bot))
+        self.bot.add_cog(TriviaSettingsCog(self.bot))
         print(f'[{dt_now_as_text()}] cogs loaded')
 
         print(f'[{dt_now_as_text()}] registering slash commands...')
