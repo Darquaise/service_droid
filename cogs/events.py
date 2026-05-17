@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import random
 
-from classes import ServiceDroid, Guild
+from classes import ServiceDroid, Guild, Message
 
 
 class EventsCog(commands.Cog):
@@ -42,9 +42,11 @@ class EventsCog(commands.Cog):
         return random.choice(texts)
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
+    async def on_member_remove(self, member: discord.Member) -> None:
         guild = Guild.get(member.guild.id)
-        if not guild.galatron_role in member.roles:
+        if guild.galatron_role is None:
+            return
+        if guild.galatron_role not in member.roles:
             return
 
         embed = discord.Embed(
@@ -56,6 +58,3 @@ class EventsCog(commands.Cog):
         for channel in guild.galatron_channels:
             await channel.send(embed=embed)
 
-
-def setup(bot: ServiceDroid):
-    bot.add_cog(EventsCog(bot))

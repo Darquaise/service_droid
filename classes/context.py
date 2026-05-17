@@ -21,6 +21,7 @@ class Message(discord.Message):
 class Context(commands.Context):
     guild: discord.Guild
     channel: discord.abc.GuildChannel | discord.Thread
+    author: discord.Member
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

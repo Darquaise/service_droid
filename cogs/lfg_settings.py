@@ -27,7 +27,9 @@ def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
     )
 
     embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
-    embed.set_thumbnail(url=ctx.guild.icon.url)
+    icon = ctx.guild.icon
+    if icon:
+        embed.set_thumbnail(url=icon.url)
     return embed
 
 
@@ -128,7 +130,7 @@ class LFGSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-        self.bot.settings.update_guilds()
+        return self.bot.settings.update_guilds()
 
     @discord.slash_command(description="Remove a LFG Channel.")
     @discord.default_permissions(administrator=True)
@@ -157,7 +159,3 @@ class LFGSettingsCog(discord.Cog):
     async def current_settings_lfg_owner(self, ctx: Context):
         embed = generate_settings_embed(ctx)
         await ctx.reply(embed=embed)
-
-
-def setup(bot):
-    bot.add_cog(LFGSettingsCog(bot))

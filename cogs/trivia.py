@@ -18,7 +18,3 @@ class TriviaCog(commands.Cog):
 
     def cog_unload(self):
         self.scheduler.cancel_all()
-
-
-def setup(bot: ServiceDroid):
-    bot.add_cog(TriviaCog(bot))

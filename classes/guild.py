@@ -49,20 +49,20 @@ class Guild(GuildBase):
             return self.host_roles[role.id].cooldown
         return None
 
-    def get_member_cooldown(self, member: discord.Member) -> timedelta | type[LFGNotAllowed]:
+    def get_member_cooldown(self, member: discord.Member) -> timedelta | LFGNotAllowed:
         results = []
         for role in member.roles:
             result = self.get_role_cooldown(role)
             if result:
                 results.append(result)
         if len(results) > 0:
-            return min(results) if min(results) != 0 else LFGNotAllowed
-        return LFGNotAllowed
+            return min(results) if min(results) != 0 else LFGNotAllowed()
+        return LFGNotAllowed()
 
     def add_lfg_channel(self, channel: discord.TextChannel, roles: list[discord.Role]) -> None:
         self.lfg_channels[channel.id] = LFGChannel(channel, roles)
 
-    def set_cooldown(self, role: discord.Role, amount, unit) -> None:
+    def set_cooldown(self, role: discord.Role, amount: int, unit: str) -> None:
         if role.id in self.host_roles:
             self.host_roles[role.id].set_cooldown(amount, unit)
         else:
@@ -85,21 +85,20 @@ class Guild(GuildBase):
     def from_json(cls, guild: discord.Guild, data: dict):
         # lfg stuff
         host_roles: dict[int, LFGHost] = {}
-        for role_data in data['roles']:
+        for role_data in data.get('roles', []):
             role_id = int(role_data['id'])
             role = guild.get_role(role_id)
             if role:
                 host_roles[role_id] = LFGHost.from_json(role_data, role)
 
         lfg_channels: dict[int, LFGChannel] = {}
-        for channel_data in data['channels']:
+        for channel_data in data.get('channels', []):
             channel_id = int(channel_data['id'])
             channel = guild.get_channel(channel_id)
-            assert isinstance(channel, discord.TextChannel)
-            if channel:
-                lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
-            else:
-                print(f"channel {channel_id} not found")
+            if not isinstance(channel, discord.TextChannel):
+                print(f"channel {channel_id} not found or not a text channel")
+                continue
+            lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
 
         # galatron stuff
         if "galatron" in data:
@@ -172,7 +171,4 @@ class Guild(GuildBase):
 
     @classmethod
     def from_nothing(cls, guild: discord.Guild):
-        return cls(
-            guild, {}, {}, None, 0.005, timedelta(days=1), [], GalatronHistory(guild, []), {}, {},
-            {}, "NT"
-        )
+        return cls.from_json(guild, {})

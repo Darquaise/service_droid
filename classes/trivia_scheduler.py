@@ -25,6 +25,8 @@ def _log(msg: str) -> None:
 
 
 class TriviaScheduler:
+    __slots__ = ("bot", "_question_tasks", "_answer_tasks")
+
     def __init__(self, bot: "ServiceDroid"):
         self.bot = bot
         self._question_tasks: dict[int, asyncio.Task] = {}

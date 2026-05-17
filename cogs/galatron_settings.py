@@ -64,7 +64,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.slash_command()
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_role(self, ctx: ApplicationContext, role: discord.Role):
-        if role.id == ctx.g.galatron_role.id if ctx.g.galatron_role else None:
+        if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
         ctx.g.galatron_role = role
         self.bot.settings.update_guilds()

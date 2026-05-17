@@ -8,7 +8,7 @@ from classes import ApplicationContext, ServiceDroid, GalatronStatsView
 from converters.time import td2text_long
 
 
-def binom_p(n, p, k):
+def binom_p(n: int, p: float, k: int) -> float:
     return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
 
 
@@ -385,7 +385,3 @@ class GalatronCog(commands.Cog):
         )
 
         return await ctx.respond(embed=embed)
-
-
-def setup(bot: ServiceDroid):
-    bot.add_cog(GalatronCog(bot))

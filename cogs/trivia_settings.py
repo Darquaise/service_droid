@@ -347,7 +347,3 @@ class TriviaSettingsCog(commands.Cog):
         return await ctx.respond(
             f"Response time for {channel.mention} is now {response}s.", ephemeral=True
         )
-
-
-def setup(bot: ServiceDroid):
-    bot.add_cog(TriviaSettingsCog(bot))

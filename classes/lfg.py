@@ -13,14 +13,16 @@ class LFGNotAllowed:
     pass
 
 
-def transform_time_lfg(time_amount: int, time_unit: str) -> timedelta | type[LFGNotAllowed]:
+def transform_time_lfg(time_amount: int, time_unit: str) -> timedelta | LFGNotAllowed:
     time = transform_time(time_amount, time_unit)
     if time is None or time <= timedelta():
-        return LFGNotAllowed
+        return LFGNotAllowed()
     return time
 
 
 class LFGData:
+    __slots__ = ("_ctx",)
+
     def __init__(self, ctx: Context | ApplicationContext):
         self._ctx = ctx
 

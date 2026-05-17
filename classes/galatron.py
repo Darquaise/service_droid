@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 
 
 class GalatronData:
+    __slots__ = ("_ctx",)
+
     def __init__(self, ctx: ApplicationContext):
         self._ctx = ctx
 
@@ -48,7 +50,7 @@ class GalatronHistory:
         self.guild = guild
         self.history = raw_history
 
-    def add_entry(self, member: discord.Member, timestamp: datetime = None):
+    def add_entry(self, member: discord.Member, timestamp: datetime | None = None) -> None:
         if timestamp is None:
             timestamp = datetime.now().replace(microsecond=0)
 

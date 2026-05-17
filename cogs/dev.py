@@ -232,7 +232,3 @@ class DevelopmentCog(commands.Cog):
             f"Lists in payload: {counts}",
             ephemeral=True,
         )
-
-
-def setup(bot):
-    bot.add_cog(DevelopmentCog(bot))
