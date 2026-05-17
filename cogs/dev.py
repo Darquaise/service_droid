@@ -14,6 +14,121 @@ REPO_PATH = str(Path(__file__).resolve().parent.parent)
 LOG_PATH = f"{REPO_PATH}/logs/latest.log"
 DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS")
 
+KEY_PERMS: list[tuple[str, str]] = [
+    ("administrator", "Administrator"),
+    ("manage_guild", "Manage Server"),
+    ("manage_roles", "Manage Roles"),
+    ("manage_channels", "Manage Channels"),
+    ("manage_messages", "Manage Messages"),
+    ("kick_members", "Kick"),
+    ("ban_members", "Ban"),
+    ("moderate_members", "Timeout"),
+    ("manage_webhooks", "Manage Webhooks"),
+    ("mention_everyone", "Mention Everyone"),
+    ("view_audit_log", "Audit Log"),
+    ("send_messages", "Send Messages"),
+    ("embed_links", "Embed Links"),
+    ("attach_files", "Attach Files"),
+    ("read_message_history", "Read History"),
+]
+
+MAX_FIELD_VALUE = 1000
+MAX_TOTAL_ROLE_CHARS = 4500
+
+
+def _categorize_role(role: discord.Role) -> str:
+    p = role.permissions
+    if p.administrator:
+        return "Admin"
+    if p.manage_guild or p.manage_roles or p.manage_channels:
+        return "Manager"
+    if p.ban_members or p.kick_members:
+        return "Moderator"
+    if p.moderate_members or p.manage_messages:
+        return "Mod-Lite"
+    if p.mention_everyone:
+        return "Herald"
+    if p.view_audit_log:
+        return "Watcher"
+    return "Member"
+
+
+def _build_guild_embed(guild: discord.Guild) -> discord.Embed:
+    me = guild.me
+    perms = me.guild_permissions
+
+    granted = [label for attr, label in KEY_PERMS if getattr(perms, attr, False)]
+    missing = [label for attr, label in KEY_PERMS if not getattr(perms, attr, False)]
+
+    desc_lines = [
+        f"**Members:** {guild.member_count if guild.member_count is not None else '?'}",
+        f"**Owner:** `{guild.owner_id}`",
+        "",
+        "**Bot Permissions**",
+        f"✅ {', '.join(granted) if granted else '—'}",
+        f"❌ {', '.join(missing) if missing else '—'}",
+    ]
+
+    embed = discord.Embed(
+        title=guild.name,
+        description="\n".join(desc_lines),
+        colour=discord.Colour.blurple(),
+    )
+    embed.set_footer(text=f"ID: {guild.id}")
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    bot_role_ids = {r.id for r in me.roles}
+    # Skip @everyone; list top-first like Discord's sidebar.
+    roles_sorted = sorted(
+        (r for r in guild.roles if not r.is_default()),
+        key=lambda r: r.position,
+        reverse=True,
+    )
+
+    role_lines: list[str] = []
+    for role in roles_sorted:
+        marker = "🤖" if role.id in bot_role_ids else "▫️"
+        name = role.name.replace("`", "ˋ")
+        role_lines.append(f"{marker} `{name}` — {_categorize_role(role)}")
+
+    field_values: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    total_used = 0
+    truncated = 0
+
+    for i, line in enumerate(role_lines):
+        line_len = len(line) + 1
+        if total_used + current_len + line_len > MAX_TOTAL_ROLE_CHARS:
+            truncated = len(role_lines) - i
+            break
+        if current_len + line_len > MAX_FIELD_VALUE:
+            field_values.append("\n".join(current))
+            total_used += current_len
+            current = [line]
+            current_len = line_len
+        else:
+            current.append(line)
+            current_len += line_len
+    if current:
+        field_values.append("\n".join(current))
+
+    for i, value in enumerate(field_values):
+        name = f"Roles ({len(roles_sorted)})" if i == 0 else "… cont."
+        embed.add_field(name=name, value=value, inline=False)
+
+    if not field_values:
+        embed.add_field(name="Roles", value="*(none beyond @everyone)*", inline=False)
+    elif truncated:
+        embed.add_field(
+            name="…",
+            value=f"*+ {truncated} more roles truncated*",
+            inline=False,
+        )
+
+    return embed
+
 
 async def _guild_autocomplete(ctx: discord.AutocompleteContext) -> list[discord.OptionChoice]:
     bot = ctx.interaction.client
@@ -103,6 +218,25 @@ class DevelopmentCog(commands.Cog):
         await ctx.defer(ephemeral=True)
         view = LogView(ctx, LOG_PATH, lines_per_page=lines_per_page)
         await ctx.followup.send(embed=view.build_embed(), view=view, ephemeral=True)
+
+    @discord.slash_command(
+        description="List all guilds with bot permissions and roles.",
+        debug_guilds=DEBUG_GUILD_IDS,
+    )
+    @discord.default_permissions(administrator=True)
+    async def list_guilds(self, ctx: discord.ApplicationContext):
+        await ctx.defer(ephemeral=True)
+
+        guilds = sorted(self.bot.guilds, key=lambda g: g.name.lower())
+
+        await ctx.followup.send(
+            f"Bot is in **{len(guilds)}** guild{'s' if len(guilds) != 1 else ''}.",
+            ephemeral=True,
+        )
+
+        for guild in guilds:
+            embed = _build_guild_embed(guild)
+            await ctx.followup.send(embed=embed, ephemeral=True)
 
     @discord.slash_command(
         description="Export the live guilds data as JSON.",
