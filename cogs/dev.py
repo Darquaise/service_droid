@@ -8,9 +8,11 @@ from discord.ext import commands
 
 from classes import ServiceDroid, LogView, TriviaHandler, TriviaQuestion
 from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
+from classes.settings import env_int_list
 
 REPO_PATH = str(Path(__file__).resolve().parent.parent)
 LOG_PATH = f"{REPO_PATH}/logs/latest.log"
+DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS")
 
 
 async def _guild_autocomplete(ctx: discord.AutocompleteContext) -> list[discord.OptionChoice]:
@@ -45,7 +47,7 @@ class DevelopmentCog(commands.Cog):
         self.bot = bot
         print('dev cog loaded')
 
-    @discord.slash_command(debug_guilds=[576380164250927124])
+    @discord.slash_command(debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def update_git(self, ctx: discord.ApplicationContext):
         await ctx.defer(ephemeral=True)
@@ -68,24 +70,24 @@ class DevelopmentCog(commands.Cog):
 
         await ctx.followup.send(text, ephemeral=True)
 
-    @commands.slash_command(description="Shuts down the Bot", debug_guilds=[576380164250927124])
+    @commands.slash_command(description="Shuts down the Bot", debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def shutdown(self, ctx: discord.ApplicationContext):
         await ctx.respond("Bot is shutting down", ephemeral=True)
         await shutdown(self.bot)
 
-    @commands.slash_command(description="Restarts the Bot", debug_guilds=[576380164250927124])
+    @commands.slash_command(description="Restarts the Bot", debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def restart(self, ctx: discord.ApplicationContext):
         await ctx.respond("Bot is restarting", ephemeral=True)
         await restart(self.bot)
 
-    @commands.slash_command(description="Check if Bot responds", debug_guilds=[576380164250927124])
+    @commands.slash_command(description="Check if Bot responds", debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def status(self, ctx: discord.ApplicationContext):
         await ctx.respond("Bot is here!", ephemeral=True)
 
-    @discord.slash_command(description="Show the bot's terminal log", debug_guilds=[576380164250927124])
+    @discord.slash_command(description="Show the bot's terminal log", debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def log(
             self,
@@ -103,34 +105,27 @@ class DevelopmentCog(commands.Cog):
         await ctx.followup.send(embed=view.build_embed(), view=view, ephemeral=True)
 
     @discord.slash_command(
-        description="Export bot settings.",
-        debug_guilds=[576380164250927124],
+        description="Export the live guilds data as JSON.",
+        debug_guilds=DEBUG_GUILD_IDS,
     )
     @discord.default_permissions(administrator=True)
-    async def export_settings(self, ctx: discord.ApplicationContext):
+    async def export_guilds(self, ctx: discord.ApplicationContext):
         await ctx.defer(ephemeral=True)
 
-        settings_data = self.bot.settings.to_dict()
         guilds_data = self.bot.settings.get_live_guilds_dict()
 
-        files = [
-            discord.File(
-                io.BytesIO(json.dumps(settings_data, indent=2).encode("utf-8")),
-                filename="settings.json",
-            ),
-            discord.File(
+        await ctx.followup.send(
+            "Guilds export.",
+            file=discord.File(
                 io.BytesIO(json.dumps(guilds_data, indent=2, default=str).encode("utf-8")),
                 filename="guilds.json",
             ),
-        ]
-
-        await ctx.followup.send(
-            "Settings export.", files=files, ephemeral=True,
+            ephemeral=True,
         )
 
     @discord.slash_command(
         description="Export a guild's trivia questions as JSON.",
-        debug_guilds=[576380164250927124],
+        debug_guilds=DEBUG_GUILD_IDS,
     )
     @discord.default_permissions(administrator=True)
     async def export_trivia(
@@ -168,7 +163,7 @@ class DevelopmentCog(commands.Cog):
 
     @discord.slash_command(
         description="Inject a trivia JSON into a chosen guild.",
-        debug_guilds=[576380164250927124],
+        debug_guilds=DEBUG_GUILD_IDS,
     )
     @discord.default_permissions(administrator=True)
     async def inject_trivia(

@@ -1,8 +1,9 @@
-/venv/
-token
-settings.json
+/.venv/
+.env
 guilds.json
-trivia/*
+/trivia/*
 !trivia/.gitkeep
-/.idea/
+/.idea/*
 test.py
+/logs/*
+!/logs/.gitkeep

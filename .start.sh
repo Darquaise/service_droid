@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ ! -f "$BASE_DIR/.env" ]; then
+    echo "[service_droid] ERROR: $BASE_DIR/.env not found. Copy .env.example to .env and fill in DISCORD_TOKEN." >&2
+    exit 1
+fi
+
+set -a
+source "$BASE_DIR/.env"
+set +a
+
 source "$BASE_DIR/.venv/bin/activate"
 
 export PYTHONUNBUFFERED=1

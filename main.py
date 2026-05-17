@@ -1,3 +1,4 @@
+import os
 import discord
 
 from classes import Settings
@@ -7,22 +8,20 @@ from cogs.startup import StartupCog
 
 
 intents = discord.Intents.all()
-settings = Settings("settings.json")
+settings = Settings()
 
 bot = ServiceDroid(
-    command_prefix="!",
+    command_prefix=settings.command_prefix,
     case_insensitive=True,
     help_command=None,
-    debug_guilds=[576380164250927124] if settings.debug else None,
+    debug_guilds=settings.debug_guild_ids if settings.debug else None,
     intents=intents,
     settings=settings,
-    owner_ids={264203029279014922}
+    owner_ids=set(settings.owner_ids)
 )
 bot.exit_code = 0
 
-# get token from token file
-with open("token", "r") as f:
-    token = f.read()
+token = os.environ["DISCORD_TOKEN"]
 
 # preload startup cog and start bot
 bot.add_cog(StartupCog(bot))

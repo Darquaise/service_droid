@@ -35,13 +35,6 @@ class LFGSettingsCog(discord.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
-    @discord.slash_command(name="turn_lfg_on_or_off", description="Turn Looking for game requests on or off")
-    @discord.default_permissions(administrator=True)
-    async def turn_lfg(self, ctx: ApplicationContext):
-        self.bot.settings.active = not self.bot.settings.active
-        self.bot.settings.update_settings()
-        await ctx.respond(f"Looking for game command has be turned {'on' if self.bot.settings.active else 'off'}")
-
     @discord.slash_command(description="Change the amount of cooldown a Host has after a looking for game request")
     @discord.default_permissions(administrator=True)
     async def setting_set_host(
@@ -97,7 +90,7 @@ class LFGSettingsCog(discord.Cog):
             )
 
         del ctx.g.host_roles[role.id]
-        self.bot.settings.update_settings()
+        self.bot.settings.update_guilds()
 
         return await ctx.respond(
             f"{role.mention} isn't a Host Role anymore.",
@@ -142,7 +135,7 @@ class LFGSettingsCog(discord.Cog):
     async def setting_remove_lfg(self, ctx: ApplicationContext, channel: discord.TextChannel):
         if channel.id in ctx.g.lfg_channels:
             del ctx.g.lfg_channels[channel.id]
-            self.bot.settings.update_settings()
+            self.bot.settings.update_guilds()
             await ctx.respond(
                 f"{channel.mention} is no longer a LFG Channel.",
                 ephemeral=True
@@ -152,8 +145,6 @@ class LFGSettingsCog(discord.Cog):
                 f"{channel.mention} is no LFG Channel!",
                 ephemeral=True
             )
-
-        self.bot.settings.update_guilds()
 
     @discord.slash_command(description="See how things are set up currently")
     @discord.default_permissions(administrator=True)
