@@ -58,6 +58,9 @@ class LFGHost:
         self._amount = amount
         self._unit = unit
 
+    def get_cooldown_text(self):
+        return f"{self._amount} {self._unit}"
+
     @classmethod
     def from_json(cls, data: dict, role: discord.Role):
         return cls(role, data['cooldown'], data['cooldown_type'])

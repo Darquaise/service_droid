@@ -18,7 +18,7 @@ def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
         text += "None set"
     else:
         for role in ctx.g.host_roles.values():
-            text += f"\n{role.role.mention}: {role._amount} {role._unit}"  # noqa
+            text += f"\n{role.role.mention}: {role.get_cooldown_text()}"
 
     embed = discord.Embed(
         title="LFG Settings",
