@@ -34,6 +34,10 @@ def _read_tail(path: str, max_lines: int) -> list[str]:
     text = data.decode("utf-8", errors="replace")
     text = _ANSI_RE.sub("", text)
     lines = text.splitlines()
+    # If we stopped before reaching the start of the file, the first line was
+    # cut mid-line by the block boundary — drop it.
+    if pos > 0:
+        lines = lines[1:]
     return lines[-max_lines:]
 
 
