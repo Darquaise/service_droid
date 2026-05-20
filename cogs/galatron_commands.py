@@ -1,11 +1,12 @@
+import asyncio
 import discord
 from discord.ext import commands
 import math
 import random
 from datetime import datetime, timedelta
 
-from classes import ApplicationContext, ServiceDroid, GalatronStatsView
-from converters.time import td2text_long
+from classes import ApplicationContext, ServiceDroid, GalatronStatsView, GalatronLeaderboardView
+from classes.galatron_leaderboard_view import PRIME_DELAY
 
 
 def binom_p(n: int, p: float, k: int) -> float:
@@ -243,18 +244,6 @@ class GalatronCog(commands.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
-    @staticmethod
-    def _generate_leaderboard_embed(title, leaderboard) -> discord.Embed:
-        lines = []
-        for rank, (member, duration, amount) in enumerate(leaderboard[:10], start=1):
-            lines.append(f"**{rank}.** {member.mention} ({amount}x) – {td2text_long(duration)}")
-
-        return discord.Embed(
-            title=title,
-            description="\n".join(lines),
-            color=discord.Color.purple()
-        )
-
     async def get_galatron(self, ctx: ApplicationContext):
         if not ctx.galatron.role:
             return await ctx.respond("This feature hasn't been set up by your admins yet.")
@@ -386,7 +375,28 @@ class GalatronCog(commands.Cog):
             return await ctx.respond(TextGenerator.no_leaderboard_entries())
 
         title = "Galatron Leaderboard – All-Time"
-        return await ctx.respond(embed=self._generate_leaderboard_embed(title, leaderboard))
+        view = GalatronLeaderboardView(ctx, leaderboard, title)
+        content = view.build_content(view.current_page)
+        embeds = view.build_embeds(view.current_page)
+        view.primed_pages.add(view.current_page)
+
+        await ctx.respond(
+            content=content or "",
+            embeds=embeds,
+            view=view,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        view.message = await ctx.interaction.original_response()
+
+        if content:
+            await asyncio.sleep(PRIME_DELAY)
+            try:
+                await view.message.edit(
+                    content="",
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+            except discord.HTTPException:
+                pass
 
     @discord.slash_command()
     async def galatron_stats(self, ctx: ApplicationContext):
