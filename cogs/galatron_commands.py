@@ -377,26 +377,32 @@ class GalatronCog(commands.Cog):
         title = "Galatron Leaderboard – All-Time"
         view = GalatronLeaderboardView(ctx, leaderboard, title)
         content = view.build_content(view.current_page)
-        embeds = view.build_embeds(view.current_page)
         view.primed_pages.add(view.current_page)
 
-        await ctx.respond(
-            content=content or "",
-            embeds=embeds,
-            view=view,
-            allowed_mentions=discord.AllowedMentions.none(),
-        )
-        view.message = await ctx.interaction.original_response()
-
         if content:
+            await ctx.respond(
+                content=content,
+                view=view,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            view.message = await ctx.interaction.original_response()
             await asyncio.sleep(PRIME_DELAY)
             try:
                 await view.message.edit(
                     content="",
+                    embeds=view.build_embeds(view.current_page),
+                    view=view,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
             except discord.HTTPException:
                 pass
+        else:
+            await ctx.respond(
+                embeds=view.build_embeds(view.current_page),
+                view=view,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            view.message = await ctx.interaction.original_response()
 
     @discord.slash_command()
     async def galatron_stats(self, ctx: ApplicationContext):

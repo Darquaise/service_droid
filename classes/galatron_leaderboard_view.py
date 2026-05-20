@@ -12,7 +12,7 @@ PAGE_SIZE = 10
 PODIUM_COLORS = [0xFFD700, 0xC0C0C0, 0xCD7F32]
 PODIUM_MEDALS = ["🥇", "🥈", "🥉"]
 BG_COLOR = 0x2B2D31
-PRIME_DELAY = .5
+PRIME_DELAY = 1.0
 SPACER_URL = "https://cdn.discordapp.com/attachments/790786316408324127/1506467803912208434/spacer_800x1.png"
 
 LeaderboardEntry = tuple[discord.Member, timedelta, int]
@@ -112,25 +112,34 @@ class GalatronLeaderboardView(View):
         self._update_button_states()
         page = self.current_page
         content = self.build_content(page)
-        embeds = self.build_embeds(page)
         self.primed_pages.add(page)
+        embeds = self.build_embeds(page)
 
-        await interaction.response.edit_message(
-            content=content or "",
-            embeds=embeds,
-            view=self,
-            allowed_mentions=discord.AllowedMentions.none(),
-        )
-
-        if content and self.message is not None:
-            await asyncio.sleep(PRIME_DELAY)
-            try:
-                await self.message.edit(
-                    content="",
-                    allowed_mentions=discord.AllowedMentions.none(),
-                )
-            except discord.HTTPException:
-                pass
+        if content:
+            await interaction.response.edit_message(
+                content=content,
+                embeds=[],
+                view=self,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            if self.message is not None:
+                await asyncio.sleep(PRIME_DELAY)
+                try:
+                    await self.message.edit(
+                        content="",
+                        embeds=embeds,
+                        view=self,
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+                except discord.HTTPException:
+                    pass
+        else:
+            await interaction.response.edit_message(
+                content="",
+                embeds=embeds,
+                view=self,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
 
     @button(label="⬅️")
     async def prev_button(self, _: discord.ui.Button, interaction: Interaction):
