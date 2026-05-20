@@ -1,12 +1,12 @@
 import discord
-from discord.ext import commands
 
-from classes import ServiceDroid, ApplicationContext, Context
+from classes import ServiceDroid, ApplicationContext
 from classes.galatron import GalatronHistory
+from cogs.galatron_commands import TextGenerator
 from converters.time import td2text_long, TIME_UNITS, transform_time
 
 
-def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
+def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
     text = f"**Galatron Channels**\n"
     if len(ctx.g.galatron_channels) == 0:
         text += "None set"
@@ -18,13 +18,15 @@ def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
     text += f"**Chance:** {ctx.g.galatron_chance * 100}%\n"
 
     embed = discord.Embed(
-        title="LFG Settings",
+        title="Galatron Settings",
         description=text,
         color=0xffd700
     )
 
     embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
-    embed.set_thumbnail(url=ctx.guild.icon.url)
+    icon = ctx.guild.icon
+    if icon:
+        embed.set_thumbnail(url=icon.url)
     return embed
 
 
@@ -99,14 +101,18 @@ class GalatronSettingsCog(discord.Cog):
     @discord.slash_command()
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_chance(self, ctx: ApplicationContext, chance: float):
-        print("raw", chance)
-        chance /= 100
-        print("chance", chance)
-        print("old chance", ctx.g.galatron_chance)
-        if chance == ctx.g.galatron_chance:
-            return await ctx.respond(f"{chance} is already being used for the Galatron hunt!")
+        if not 0 <= chance <= 100:
+            return await ctx.respond(
+                f"Chance must be between 0 and 100 (got {chance}).",
+                ephemeral=True,
+            )
 
-        ctx.g.galatron_chance = chance
+        new_chance = chance / 100
+
+        if new_chance == ctx.g.galatron_chance:
+            return await ctx.respond(f"{chance}% chance is already being used for the Galatron hunt!")
+
+        ctx.g.galatron_chance = new_chance
         self.bot.settings.update_guilds()
 
         return await ctx.respond(f"{chance}% chance is now being used for the Galatron hunt!")
@@ -117,11 +123,84 @@ class GalatronSettingsCog(discord.Cog):
         embed = generate_settings_embed(ctx)
         await ctx.respond(embed=embed)
 
-    @commands.command(name="current_settings_galatron_owner", hidden=True)
-    @commands.is_owner()
-    async def current_settings_galatron_owner(self, ctx: Context):
-        embed = generate_settings_embed(ctx)
-        await ctx.reply(embed=embed)
+    @discord.slash_command(description="Forcefully reassign the Galatron to another member.")
+    @discord.default_permissions(administrator=True)
+    async def setting_set_galatron_owner(
+            self,
+            ctx: ApplicationContext,
+            member: discord.Option(discord.Member, "The new bearer of the Galatron"),
+    ):
+        if not ctx.galatron.role:
+            return await ctx.respond(
+                "This feature hasn't been set up by your admins yet.",
+                ephemeral=True,
+            )
+
+        history = ctx.g.galatron_history.history
+        last_id = history[-1]["member_id"] if history else None
+
+        if last_id == member.id:
+            return await ctx.respond(
+                embed=discord.Embed(
+                    title=TextGenerator.title_decree(),
+                    description=TextGenerator.admin_transfer_same(member.mention),
+                    color=discord.Color.dark_purple(),
+                ),
+                ephemeral=True,
+            )
+
+        old_owner = ctx.galatron.current_owner
+        reason = f"Galatron reassigned by admin {ctx.author}"
+
+        try:
+            await member.add_roles(ctx.galatron.role, reason=reason)
+        except discord.Forbidden:
+            return await ctx.respond(
+                "Missing permissions to assign the Galatron role. "
+                "Ensure the bot's top role is above the Galatron role.",
+                ephemeral=True,
+            )
+        except discord.HTTPException as e:
+            return await ctx.respond(f"Failed to assign role: `{e}`", ephemeral=True)
+
+        if old_owner:
+            try:
+                await old_owner.remove_roles(ctx.galatron.role, reason=reason)
+            except discord.HTTPException:
+                pass
+
+        if member.id not in ctx.g.galatron_total_times_used:
+            ctx.g.galatron_total_times_used[member.id] = 0
+        ctx.g.galatron_total_times_used[member.id] += 1
+
+        ctx.g.galatron_history.add_entry(member)
+        self.bot.settings.update_guilds()
+
+        embed = discord.Embed(
+            title=TextGenerator.title_decree(),
+            description=TextGenerator.admin_transfer(
+                member.mention,
+                old_owner.mention if old_owner else None,
+            ),
+            color=discord.Color.dark_purple(),
+        )
+
+        announced = 0
+        for channel in ctx.g.galatron_channels:
+            try:
+                await channel.send(embed=embed)
+                announced += 1
+            except discord.HTTPException:
+                pass
+
+        if announced == 0:
+            return await ctx.respond(embed=embed)
+
+        return await ctx.respond(
+            f"Decree issued. {member.mention} now bears the Galatron "
+            f"(announced in {announced} channel{'s' if announced != 1 else ''}).",
+            ephemeral=True,
+        )
 
     @discord.slash_command()
     @discord.default_permissions(administrator=True)

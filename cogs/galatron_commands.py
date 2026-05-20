@@ -434,21 +434,34 @@ class GalatronCog(commands.Cog):
             )
 
         individual_users = len(ctx.g.galatron_total_times_used)
-        total_uses = sum(ctx.g.galatron_total_times_used.values())  # 300
-        total_received = len(ctx.g.galatron_history.history)  # 1
+        total_uses = sum(ctx.g.galatron_total_times_used.values())
+        total_received = len(ctx.g.galatron_history.history)
+        p = ctx.g.galatron_chance
 
-        percent_gotten = total_received / total_uses * 100 if total_received > 0 else 0
+        empirical_rate = total_received / total_uses * 100
+        expected = p * total_uses
+        luck_percentile = 1 - sum(binom_p(total_uses, p, k) for k in range(total_received))
+        low_tail = 1 - luck_percentile + binom_p(total_uses, p, total_received)
 
-        cumulative_chance = 1 - sum(
-            [binom_p(total_uses + 1, ctx.g.galatron_chance, k) for k in range(total_received + 1)])
-        exact_chance = binom_p(total_uses + 1, ctx.g.galatron_chance, total_received + 1)
+        if expected > 0:
+            luck_factor_text = f"{total_received / expected:.2f}× the average"
+        else:
+            luck_factor_text = "-"
 
-        embed = discord.Embed(
-            title="Galatron Stats Total",
-            description=f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
-                        f"**Total received:** {total_received} ({round(percent_gotten, 2)}%)\n"
-                        f"**Cumulative chance:** {round(cumulative_chance * 100, 2)}% [*](https://onlinestatbook.com/2/probability/binomial.html)\n"
-                        f"**Exact chance:** {round(exact_chance * 100, 2)}%",
+        description = (
+            f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
+            f"**Total received:** {total_received} ({empirical_rate:.2f}%)\n"
+            f"**Server chance:** {p * 100}%\n"
+            f"**Expected:** {expected:.2f} ({luck_factor_text})\n"
+            f"**P(at least this lucky):** {luck_percentile * 100:.2f}% "
         )
+
+        if min(luck_percentile, low_tail) < 0.01:
+            description += (
+                "\n\n-# This result is statistically extreme under the current server chance "
+                "- the chance may have been different during past attempts."
+            )
+
+        embed = discord.Embed(title="Galatron Stats Total", description=description)
 
         return await ctx.respond(embed=embed)
