@@ -88,11 +88,11 @@ class TextGenerator:
         return random.choice(titles)
 
     @staticmethod
-    def success_bearer_line(user_mention: str) -> str:
+    def success_bearer_line() -> str:
         texts = [
-            f"{user_mention} is now the bearer of the Galatron.",
-            f"The Galatron threads itself into {user_mention}'s timeline.",
-            f"From this moment on, {user_mention} carries the weight of the Galatron.",
+            "You are now the bearer of the Galatron.",
+            "The Galatron threads itself into your timeline.",
+            "From this moment on, you carry the weight of the Galatron.",
         ]
         return random.choice(texts)
 
@@ -166,6 +166,77 @@ class TextGenerator:
         ]
         return random.choice(texts)
 
+    @staticmethod
+    def short_success(old_owner_mention: str | None = None) -> str:
+        if old_owner_mention:
+            texts = [
+                f"You now bear the Galatron — {old_owner_mention} feels it slip away.",
+                f"The Galatron answers you. {old_owner_mention} is left empty-handed.",
+                f"Reality realigns. The artifact passes from {old_owner_mention} to you.",
+                f"You claim the Galatron from {old_owner_mention}.",
+                f"The Galatron unbinds from {old_owner_mention} and threads into your fate.",
+            ]
+        else:
+            texts = [
+                "You now bear the Galatron.",
+                "The Galatron answers — and chooses you.",
+                "Reality realigns. The artifact is yours.",
+                "The timelines settle on you as bearer.",
+                "The Galatron threads itself into your fate.",
+            ]
+        return random.choice(texts)
+
+    @staticmethod
+    def short_fail() -> str:
+        texts = [
+            "The Galatron eludes you.",
+            "You grasp only void.",
+            "Subspace stays silent for you.",
+            "The artifact ignores you.",
+            "You reach into the dark — nothing answers.",
+        ]
+        return random.choice(texts)
+
+    @staticmethod
+    def title_decree() -> str:
+        titles = [
+            "Decree of the Galactic Custodian",
+            "Mandate of the Outer Council",
+            "Override from the Shroud",
+            "Custodian Reallocation Order",
+            "Imperial Edict — Artifact Reassignment",
+            "Curator Intervention",
+        ]
+        return random.choice(titles)
+
+    @staticmethod
+    def admin_transfer(new_mention: str, old_mention: str | None) -> str:
+        if old_mention:
+            texts = [
+                f"A coded signal pierces every subspace channel — its cipher older than any current empire. The Galatron is torn from {old_mention} and pressed into the hands of {new_mention}.",
+                f"The Custodian speaks. Reality is overruled: {old_mention} is severed from the artifact, and {new_mention} becomes its new vessel.",
+                f"Beyond the senate, beyond the council, an unseen authority moves a piece on the board. {old_mention} is dispossessed; {new_mention} now carries the Galatron.",
+                f"An edict descends through the L-Gate networks. No vote was cast, no war was fought — yet {old_mention} loses the Galatron, and {new_mention} is named its bearer.",
+                f"The Shroud ripples with foreign intent. {old_mention}'s claim is unwoven from the timeline; {new_mention}'s thread is bound to the artifact in its place.",
+            ]
+        else:
+            texts = [
+                f"A directive descends from beyond the galactic frontier. The unbound Galatron is forcibly tethered to {new_mention} by powers that answer to no senate.",
+                f"The Custodian's voice resonates through every relay: the artifact shall drift no longer. {new_mention} is its bearer, by decree.",
+                f"From outside known space, a higher authority intervenes. The Galatron, masterless until now, is bound to {new_mention}.",
+                f"An ancient protocol activates without warning. The Galatron's coordinates collapse onto {new_mention}, sealing the appointment.",
+            ]
+        return random.choice(texts)
+
+    @staticmethod
+    def admin_transfer_same(owner_mention: str) -> str:
+        texts = [
+            f"The Custodian's gaze falls on {owner_mention} — and finds them already bound to the Galatron. The decree dissolves without effect.",
+            f"Reality has been pre-arranged. {owner_mention} already carries the Galatron; the intervention only confirms what is.",
+            f"The edict echoes through empty subspace. {owner_mention} is the bearer, was the bearer, remains the bearer.",
+        ]
+        return random.choice(texts)
+
 
 class GalatronCog(commands.Cog):
 
@@ -228,19 +299,16 @@ class GalatronCog(commands.Cog):
             await ctx.author.add_roles(ctx.galatron.role, reason="Galatron claimed")
 
             flavour = TextGenerator.success_text_main()
-            bearer_line = TextGenerator.success_bearer_line(ctx.author.mention)
+            bearer_line = TextGenerator.success_bearer_line()
+            extra = " " + TextGenerator.success_old_owner_line(old_owner.mention) if old_owner else ""
 
-            if old_owner:
-                extra = " " + TextGenerator.success_old_owner_line(old_owner.mention)
-            else:
-                extra = ""
-
-            embed = discord.Embed(
-                title=TextGenerator.title_awaken(),
-                description=f"{flavour}\n\n{bearer_line}{extra}",
-                color=discord.Color.gold()
+            await ctx.respond(
+                f"-# {TextGenerator.short_success(old_owner.mention if old_owner else None)}"
             )
-            return await ctx.respond(embed=embed)
+            return await ctx.followup.send(
+                f"**{TextGenerator.title_awaken()}**\n{flavour}\n{bearer_line}{extra}",
+                ephemeral=True,
+            )
         else:
             self.bot.settings.update_guilds()
             flavour = TextGenerator.fail_text_main()
@@ -249,12 +317,11 @@ class GalatronCog(commands.Cog):
             else:
                 owner_line = " " + TextGenerator.fail_ownerless()
 
-            embed = discord.Embed(
-                title=TextGenerator.title_fail(),
-                description=flavour + owner_line,
-                color=discord.Color.dark_gray()
+            await ctx.respond(f"-# {TextGenerator.short_fail()}")
+            return await ctx.followup.send(
+                f"**{TextGenerator.title_fail()}**\n{flavour}{owner_line}",
+                ephemeral=True,
             )
-            return await ctx.respond(embed=embed)
 
     @discord.slash_command(
         name="attempt_galatron",
