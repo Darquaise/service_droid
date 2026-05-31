@@ -1,9 +1,11 @@
-/.venv/
-.env
-guilds.json
+/.claude/*
+/.idea/*
+/.venv/*
+*.env
+
 /trivia/*
 !trivia/.gitkeep
-/.idea/*
-test.py
 /logs/*
 !/logs/.gitkeep
+guilds.json
+test.py
