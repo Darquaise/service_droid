@@ -68,7 +68,10 @@ class LFGCog(discord.Cog):
         await ctx.message.delete()
 
     @discord.slash_command(name="lfg", description="Ask others to join your gaming endeavour")
-    async def lfg_slash(self, ctx: ApplicationContext, text: str | None = None):
+    async def lfg_slash(
+            self, ctx: ApplicationContext,
+            text: discord.Option(str, "Optional extra message to append to the LFG ping", default=None) = None,
+    ):
         assert isinstance(ctx.author, discord.Member)
 
         # stop if not in the right channel
@@ -115,7 +118,13 @@ class LFGCog(discord.Cog):
         description="Reset the looking for game cooldown for everyone or a chosen member"
     )
     @discord.default_permissions(administrator=True)
-    async def reset_cooldown(self, ctx: ApplicationContext, member: discord.Member | None = None):
+    async def reset_cooldown(
+            self, ctx: ApplicationContext,
+            member: discord.Option(
+                discord.Member, "Member whose cooldown should be reset; leave empty to reset all",
+                default=None,
+            ) = None,
+    ):
         if member:
             guild_cooldowns = self.cooldowns.get(member.guild.id)
             if guild_cooldowns and member.id in guild_cooldowns:

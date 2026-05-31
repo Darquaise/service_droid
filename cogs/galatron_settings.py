@@ -34,9 +34,12 @@ class GalatronSettingsCog(discord.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
-    @discord.slash_command()
+    @discord.slash_command(description="Allow members to hunt the Galatron in this channel.")
     @discord.default_permissions(administrator=True)
-    async def setting_add_galatron_channel(self, ctx: ApplicationContext, channel: discord.TextChannel):
+    async def setting_add_galatron_channel(
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "Channel to enable the Galatron hunt in"),
+    ):
         if channel in ctx.g.galatron_channels:
             return await ctx.respond(
                 f"{channel.mention} is already being used for the Galatron hunt!",
@@ -51,9 +54,12 @@ class GalatronSettingsCog(discord.Cog):
             ephemeral=True
         )
 
-    @discord.slash_command()
+    @discord.slash_command(description="Stop allowing the Galatron hunt in this channel.")
     @discord.default_permissions(administrator=True)
-    async def setting_remove_galatron_channel(self, ctx: ApplicationContext, channel: discord.TextChannel):
+    async def setting_remove_galatron_channel(
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
+    ):
         if channel in ctx.g.galatron_channels:
             ctx.g.galatron_channels.remove(channel)
             self.bot.settings.update_guilds()
@@ -63,16 +69,19 @@ class GalatronSettingsCog(discord.Cog):
             ephemeral=True
         )
 
-    @discord.slash_command()
+    @discord.slash_command(description="Set the role granted to the current bearer of the Galatron.")
     @discord.default_permissions(administrator=True)
-    async def setting_set_galatron_role(self, ctx: ApplicationContext, role: discord.Role):
+    async def setting_set_galatron_role(
+            self, ctx: ApplicationContext,
+            role: discord.Option(discord.Role, "Role assigned to whoever currently holds the Galatron"),
+    ):
         if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
         ctx.g.galatron_role = role
         self.bot.settings.update_guilds()
         return await ctx.respond(f"{role.mention} is now being used for the Galatron hunt!")
 
-    @discord.slash_command()
+    @discord.slash_command(description="Set the per-member cooldown between Galatron attempts.")
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_cooldown(
             self, ctx: ApplicationContext,
@@ -98,9 +107,12 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-    @discord.slash_command()
+    @discord.slash_command(description="Set the success chance per Galatron attempt.")
     @discord.default_permissions(administrator=True)
-    async def setting_set_galatron_chance(self, ctx: ApplicationContext, chance: float):
+    async def setting_set_galatron_chance(
+            self, ctx: ApplicationContext,
+            chance: discord.Option(float, "Success chance in percent (0-100)"),
+    ):
         if not 0 <= chance <= 100:
             return await ctx.respond(
                 f"Chance must be between 0 and 100 (got {chance}).",
@@ -202,7 +214,7 @@ class GalatronSettingsCog(discord.Cog):
             ephemeral=True,
         )
 
-    @discord.slash_command()
+    @discord.slash_command(description="Wipe all Galatron history, last-used and total-uses data.")
     @discord.default_permissions(administrator=True)
     async def galatron_reset(self, ctx: ApplicationContext):
         ctx.g.galatron_history = GalatronHistory(ctx.guild, [])

@@ -42,9 +42,9 @@ class LFGSettingsCog(discord.Cog):
     async def setting_set_host(
             self,
             ctx: ApplicationContext,
-            role: discord.Role,
+            role: discord.Option(discord.Role, "Host role the cooldown applies to"),
             time_unit: discord.Option(str, "Of what kind the given time will be", choices=TIME_UNITS),
-            time_amount: discord.Option(int, "The amount of time")
+            time_amount: discord.Option(int, "The amount of time"),
     ):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
@@ -84,7 +84,10 @@ class LFGSettingsCog(discord.Cog):
 
     @discord.slash_command(description="Removes a Host Role")
     @discord.default_permissions(administrator=True)
-    async def setting_remove_host(self, ctx: ApplicationContext, role: discord.Role):
+    async def setting_remove_host(
+            self, ctx: ApplicationContext,
+            role: discord.Option(discord.Role, "Host role to remove"),
+    ):
         if role.id not in ctx.g.host_roles.keys():
             return await ctx.respond(
                 f"{role.mention} is no Host Role!",
@@ -106,8 +109,8 @@ class LFGSettingsCog(discord.Cog):
     async def setting_add_lfg(
             self,
             ctx: ApplicationContext,
-            channel: discord.TextChannel,
-            role: discord.Role
+            channel: discord.Option(discord.TextChannel, "Channel that should accept /lfg"),
+            role: discord.Option(discord.Role, "Role to be mentioned by /lfg in this channel"),
     ):
         if channel.id in ctx.g.lfg_channels.keys():
             if role in ctx.lfg.roles:
@@ -134,7 +137,10 @@ class LFGSettingsCog(discord.Cog):
 
     @discord.slash_command(description="Remove a LFG Channel.")
     @discord.default_permissions(administrator=True)
-    async def setting_remove_lfg(self, ctx: ApplicationContext, channel: discord.TextChannel):
+    async def setting_remove_lfg(
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "LFG channel to remove"),
+    ):
         if channel.id in ctx.g.lfg_channels:
             del ctx.g.lfg_channels[channel.id]
             self.bot.settings.update_guilds()

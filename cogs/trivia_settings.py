@@ -14,10 +14,11 @@ from classes import (
 
 CRON_HELP = (
     "Schedule must be a valid cron expression (5 fields: `min hour day month weekday`).\n"
+    "**Times are interpreted in UTC.**\n"
     "Examples:\n"
-    "• `0 20 * * *` — every day at 20:00\n"
+    "• `0 20 * * *` — every day at 20:00 UTC\n"
     "• `*/30 * * * *` — every 30 minutes\n"
-    "• `0 18 * * 5` — every Friday at 18:00"
+    "• `0 18 * * 5` — every Friday at 18:00 UTC"
 )
 
 OnSelectCallback = Callable[[discord.Interaction, str], Awaitable[None]]
@@ -105,7 +106,10 @@ class TriviaSettingsCog(commands.Cog):
 
     @discord.slash_command(description="Create a new, empty trivia list.")
     @discord.default_permissions(administrator=True)
-    async def setting_trivia_list_add(self, ctx: ApplicationContext, name: str):
+    async def setting_trivia_list_add(
+            self, ctx: ApplicationContext,
+            name: discord.Option(str, "Name of the new list"),
+    ):
         handler = TriviaHandler.get_or_create(ctx.guild)
         if not handler.add_list(name):
             return await ctx.respond(f"List **{name}** already exists.", ephemeral=True)
@@ -176,7 +180,10 @@ class TriviaSettingsCog(commands.Cog):
 
     @discord.slash_command(description="Remove a question from a list.")
     @discord.default_permissions(administrator=True)
-    async def setting_trivia_remove(self, ctx: ApplicationContext, trivia_id: int):
+    async def setting_trivia_remove(
+            self, ctx: ApplicationContext,
+            trivia_id: discord.Option(int, "ID of the question (see /setting_trivia_list_show)"),
+    ):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
         async def on_select(interaction: discord.Interaction, list_name: str):
@@ -203,9 +210,9 @@ class TriviaSettingsCog(commands.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_trivia_set_channel(
             self, ctx: ApplicationContext,
-            channel: discord.TextChannel,
+            channel: discord.Option(discord.TextChannel, "Channel that should run trivia"),
             schedule: discord.Option(
-                str, "5-field cron expression, e.g. 0 20 * * * runs daily at 20:00"
+                str, "5-field cron expression in UTC, e.g. `0 20 * * *` runs daily at 20:00 UTC"
             ),
             response: discord.Option(int, "Seconds to wait before posting the answer"),
             mode: discord.Option(
@@ -270,7 +277,10 @@ class TriviaSettingsCog(commands.Cog):
 
     @discord.slash_command(description="Remove a channel's trivia mapping.")
     @discord.default_permissions(administrator=True)
-    async def setting_trivia_reset_channel(self, ctx: ApplicationContext, channel: discord.TextChannel):
+    async def setting_trivia_reset_channel(
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "Channel to unbind from trivia"),
+    ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
             return await ctx.respond(
@@ -308,7 +318,9 @@ class TriviaSettingsCog(commands.Cog):
     @discord.slash_command(description="Update the schedule of an existing trivia channel.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_update_schedule(
-            self, ctx: ApplicationContext, channel: discord.TextChannel, schedule: str
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "Trivia channel to update"),
+            schedule: discord.Option(str, "New 5-field cron expression (UTC)"),
     ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
@@ -331,7 +343,9 @@ class TriviaSettingsCog(commands.Cog):
     @discord.slash_command(description="Update the response time of an existing trivia channel.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_update_response(
-            self, ctx: ApplicationContext, channel: discord.TextChannel, response: int
+            self, ctx: ApplicationContext,
+            channel: discord.Option(discord.TextChannel, "Trivia channel to update"),
+            response: discord.Option(int, "New seconds to wait before the answer is posted"),
     ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
