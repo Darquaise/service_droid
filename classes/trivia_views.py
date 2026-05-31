@@ -31,14 +31,16 @@ def _wrap(text: str) -> list[str]:
 def _format_question(q: TriviaQuestion) -> str:
     lines: list[str] = []
 
-    lines.extend(_wrap(q.title or "(untitled)"))
+    lines.extend(_wrap(f"#{q.id}  {q.title or '(untitled)'}"))
     lines.append(TITLE_RULE)
 
     if q.question:
+        multi = len(q.question) > 1
         for i, part in enumerate(q.question):
             if i > 0:
                 lines.append("")
-            lines.extend(_wrap(part))
+            prefix = f"[{i + 1}] " if multi else ""
+            lines.extend(_wrap(f"{prefix}{part}"))
     else:
         lines.append("")
 

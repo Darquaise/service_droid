@@ -161,10 +161,10 @@ class TriviaScheduler:
     async def _fire_timed(
             self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion,
     ) -> None:
-        question_text = question.question[0] if question.question else ""
+        wording = random.choice(question.question) if question.question else ""
         embed = discord.Embed(
             title=f"Trivia: {question.title}",
-            description=question_text,
+            description=wording,
             colour=0xffd700,
         )
         embed.set_footer(text=f"Answer in {config.response}s")

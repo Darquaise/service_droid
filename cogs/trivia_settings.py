@@ -177,6 +177,35 @@ class TriviaSettingsCog(commands.Cog):
 
         await _prompt_list_select(ctx, on_select, "Which list should the question be added to?")
 
+    @discord.slash_command(
+        description="Add another wording for an existing question (picked at random when the question fires).",
+    )
+    @discord.default_permissions(administrator=True)
+    async def setting_trivia_add_variation(
+            self, ctx: ApplicationContext,
+            trivia_id: discord.Option(int, "ID of the question (see /setting_trivia_list_show)"),
+            wording: discord.Option(str, "Alternative wording of the same question"),
+    ):
+        handler = TriviaHandler.get_or_create(ctx.guild)
+
+        async def on_select(interaction: discord.Interaction, list_name: str):
+            q = handler.add_variation(list_name, trivia_id, wording)
+            if q is None:
+                return await interaction.response.edit_message(
+                    content=f"There is no question with ID `{trivia_id}` in **{list_name}**.",
+                    view=None,
+                )
+            self.bot.settings.update_trivia(ctx.guild.id)
+            await interaction.response.edit_message(
+                content=(
+                    f"Added a new wording to question `{trivia_id}` in **{list_name}** "
+                    f"({len(q.question)} wordings total)."
+                ),
+                view=None,
+            )
+
+        await _prompt_list_select(ctx, on_select, "Which list contains the question?")
+
     @discord.slash_command(description="Remove a question from a list.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_remove(

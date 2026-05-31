@@ -202,6 +202,21 @@ class TriviaHandler:
                 return True
         return False
 
+    def find_question(self, list_name: str, trivia_id: int) -> TriviaQuestion | None:
+        if list_name not in self.lists:
+            return None
+        for q in self.lists[list_name]:
+            if q.id == trivia_id:
+                return q
+        return None
+
+    def add_variation(self, list_name: str, trivia_id: int, wording: str) -> TriviaQuestion | None:
+        q = self.find_question(list_name, trivia_id)
+        if q is None:
+            return None
+        q.question.append(wording)
+        return q
+
     def to_json(self) -> dict:
         return {name: [q.to_json() for q in questions] for name, questions in self.lists.items()}
 
