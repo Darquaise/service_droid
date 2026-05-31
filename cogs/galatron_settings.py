@@ -1,6 +1,6 @@
 import discord
 
-from classes import ServiceDroid, ApplicationContext
+from classes import ServiceDroid, ApplicationContext, build_command_listing_embed
 from classes.galatron import GalatronHistory
 from cogs.galatron_commands import TextGenerator
 from converters.time import td2text_long, TIME_UNITS, transform_time
@@ -222,3 +222,11 @@ class GalatronSettingsCog(discord.Cog):
         ctx.g.galatron_total_times_used = {}
         self.bot.settings.update_guilds()
         return await ctx.respond("Galatron reset complete!")
+
+    @discord.slash_command(description="List Galatron-Setting commands.")
+    @discord.default_permissions(administrator=True)
+    async def commands_galatron(self, ctx: ApplicationContext):
+        embed = await build_command_listing_embed(
+            self.bot, ctx.guild, "Galatron commands", (GalatronSettingsCog,),
+        )
+        await ctx.respond(embed=embed, ephemeral=True)

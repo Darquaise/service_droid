@@ -4,12 +4,8 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid,
-    ApplicationContext,
-    TriviaHandler,
-    TriviaChannelConfig,
-    TriviaQuestionPaginatorView,
-    trivia_modes, TriviaScheduler,
+    ServiceDroid, ApplicationContext, TriviaHandler, TriviaChannelConfig, TriviaQuestionPaginatorView, trivia_modes,
+    TriviaScheduler, build_command_listing_embed,
 )
 
 CRON_HELP = (
@@ -361,3 +357,11 @@ class TriviaSettingsCog(commands.Cog):
         return await ctx.respond(
             f"Response time for {channel.mention} is now {response}s.", ephemeral=True
         )
+
+    @discord.slash_command(description="List Trivia-Setting commands.")
+    @discord.default_permissions(administrator=True)
+    async def commands_trivia(self, ctx: ApplicationContext):
+        embed = await build_command_listing_embed(
+            self.bot, ctx.guild, "Trivia commands", (TriviaSettingsCog,),
+        )
+        await ctx.respond(embed=embed, ephemeral=True)

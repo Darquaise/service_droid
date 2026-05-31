@@ -1,7 +1,10 @@
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed
+from classes import (
+    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed,
+    build_command_listing_embed,
+)
 from converters import TIME_UNITS
 
 
@@ -165,3 +168,11 @@ class LFGSettingsCog(discord.Cog):
     async def current_settings_lfg_owner(self, ctx: Context):
         embed = generate_settings_embed(ctx)
         await ctx.reply(embed=embed)
+
+    @discord.slash_command(description="List LFG-Setting commands.")
+    @discord.default_permissions(administrator=True)
+    async def commands_lfg(self, ctx: ApplicationContext):
+        embed = await build_command_listing_embed(
+            self.bot, ctx.guild, "LFG commands", (LFGSettingsCog,),
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
