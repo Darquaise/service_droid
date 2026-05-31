@@ -2,87 +2,121 @@
 
 # Service Droid
 
-## What is this?
+A Discord bot built on py-cord. Originally created for Stellaris YouTuber [Ep3o](https://www.youtube.com/@Ep3o), now covers LFG, the Galatron community game, and scheduled Trivia.
 
-Service Droid is a Discord Bot based on VibeBots structure.
-It was created for the Stellaris Youtuber [Ep3o](https://www.youtube.com/@Ep3o) and adds a number of commands for LFG (looking for game) mechanics.
+## Setup
 
-## Available Commands
+**Requirements:** Python 3.14 and a Discord bot token.
 
-### General
+1. Clone the repo and create the virtual environment **with Python 3.14** in `.venv`:
+   ```bash
+   python3.14 -m venv .venv
+   ```
+2. Copy `.env.example` to `.env` and fill in the values:
+   ```
+   DISCORD_TOKEN=<your bot token>
+   DEBUG=false
+   COMMAND_PREFIX=!
+   OWNER_IDS=<comma-separated user IDs>
+   DEBUG_GUILD_IDS=<comma-separated guild IDs for dev-only slash commands>
+   ```
+3. Run `./start.sh`. It launches `.start.sh` inside a detached `screen` session named `service_droid`. `.start.sh` sources `.env`, activates the venv, installs `requirements.txt`, runs `main.py`, and rotates logs into `logs/`. It auto-restarts when the bot exits with code 42.
 
-> `/lfg [Message]` | `!lfg [Message]`
+## Persistence
 
-This commands can be executed by every Member that has the permissions to do so.
-To actually use the Command the member needs to have a Host Role and the Channel needs to be set up as a LFG Channel.
-An additional text can be added to be displayed below the Message.
+State is stored as JSON files next to the bot and written automatically — you never edit these by hand. Back them up if you care about the data:
 
-### Setting Commands
+- `guilds.json` — per-guild config (LFG channels, host roles, Galatron state, Trivia mappings, sequential cursor).
+- `trivia/<guild_id>.json` — per-guild Trivia question lists.
+- `trivia/_pending.json` — short-lived state for a trivia question whose answer hasn't been revealed yet, so a restart between question and answer can still deliver the answer.
+- `.env` — secrets and bootstrap config. Gitignored.
 
-All Settings can only be used by Members having the `Administrator` permissions.
+## Commands
 
-> `/turn_lfg_on_or_off`
+### LFG
 
-Turns of all Features.
-This will later be replaced by `/turn_on_or_off` but would be misleading at this point since LFG is the only feature.
+| Command                              | Description                                                                                  |
+|--------------------------------------|----------------------------------------------------------------------------------------------|
+| `/lfg [message]` or `!lfg [message]` | Post an LFG ping in a configured LFG channel. Requires a Host Role with a non-zero cooldown. |
+| `/reset_cooldown [member]`           | Admin: reset cooldowns (one member or all).                                                  |
+| `/commands_lfg`                      | List all LFG-related slash commands (clickable mentions).                                    |
 
-> `/current_settings`
+**Setup (Admin):**
 
-Shows the current LFG Settings of the Server.
+| Command                                              | Description                                                                                                |
+|------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| `/setting_add_lfg {channel} {role}`                  | Make a channel an LFG channel / add a role to be mentioned.                                                |
+| `/setting_remove_lfg {channel}`                      | Remove an LFG channel.                                                                                     |
+| `/setting_set_host {role} {time_unit} {time_amount}` | Set a Host Role and its cooldown. Cooldown 0 disables LFG for members whose highest Host Role is this one. |
+| `/setting_remove_host {role}`                        | Remove a Host Role.                                                                                        |
+| `/current_settings_lfg`                              | Show current LFG setup.                                                                                    |
 
-> `/reset_cooldown [Member]`
+### Galatron
 
-Reset all LFG Cooldowns on the Server.
-A Member can be added optionally to only reset their Cooldown.
+A community claim-the-artifact game: members roll for a server-wide role, with cooldowns and chance configurable per guild.
 
-> `/setting_add_lfg {Channel} {Role}`
+| Command                                   | Description                                                        |
+|-------------------------------------------|--------------------------------------------------------------------|
+| `/attempt_galatron` / `/galatron_attempt` | Roll for the Galatron.                                             |
+| `/locate_galatron` / `/galatron_locate`   | Show the current bearer.                                           |
+| `/galatron_leaderboard`                   | All-time top bearers (by total bearing duration).                  |
+| `/galatron_stats`                         | Paginated per-member stats (tries, successes, time held).          |
+| `/galatron_stats_total`                   | Aggregate stats incl. cumulative and exact binomial probabilities. |
+| `/commands_galatron`                      | List all Galatron-related slash commands (clickable mentions).     |
 
-Create a LFG Channel or add additional Roles to mention to it.
-`Channel` is the Channel you want to make a LFG Channel or add additional mentions to.
-`Role` is the Role that you want to be mentioned, making it a LFG Role.
+**Setup (Admin):**
 
-> `/setting_remove_lfg {Channel}`
+| Command                                                    | Description                                                |
+|------------------------------------------------------------|------------------------------------------------------------|
+| `/setting_add_galatron_channel {channel}`                  | Add a channel where the Galatron can be claimed.           |
+| `/setting_remove_galatron_channel {channel}`               | Remove a Galatron channel.                                 |
+| `/setting_set_galatron_role {role}`                        | Set the role granted to the current bearer.                |
+| `/setting_set_galatron_cooldown {time_unit} {time_amount}` | Per-member cooldown between attempts.                      |
+| `/setting_set_galatron_chance {chance}`                    | Success chance (as percentage).                            |
+| `/current_settings_galatron`                               | Show current Galatron setup.                               |
+| `/galatron_reset`                                          | Wipe all Galatron history, last-used, and total-uses data. |
 
-Removes a LFG Channel.
-Specific mentions can't be removed, so the entire LFG Channel needs to be removed and the Roles actually wanted re added.
+### Trivia
 
-> `/setting_set_host {Role} {timeunit} {amount}`
+Per-channel scheduled trivia using cron expressions. Each channel binds to a named question list.
 
-With this Command Host Roles can be added.
-`Role` is the Role that's supposed to be made a Host Role.
-`timeunit` and `amount` add details for the Cooldown duration.
-If a Role is supposed to remove LFG permissions entirely that can be done by setting the Cooldown to zero seconds.
+**Question wordings.** A trivia question consists of one title, one answer, an optional answer context — and a list of *wordings*. Each wording is an alternative phrasing of the same question; when the question fires, one wording is picked at random. Initial questions are created with a single wording via `/setting_trivia_add`; further wordings are added later with `/setting_trivia_add_variation`. To edit a question, delete it and create it anew.
 
-> `/setting_remove_host {Role}`
+**Scheduling.** Cron expressions are evaluated in **UTC**. A schedule like `0 20 * * *` posts daily at 20:00 UTC, not at the server's local time. Use a UTC offset converter to translate from your wall-clock time.
 
-If a Role isn't supposed to be a Host Role anymore it can be removed with this command.
-`Role` is the Role that's supposed to not be a Host Role anymore.
+**Restart behaviour.** When a question has been posted but the bot restarts before the answer reveal, the pending answer is persisted to `trivia/_pending.json`. On the next start, if the reveal time still lies in the future, the answer is delivered on schedule; if it has already passed, it is silently discarded.
 
-### Dev Commands
+**Lists (Admin):**
+| Command | Description |
+|---|---|
+| `/setting_trivia_list` | Show all lists with question counts. |
+| `/setting_trivia_list_add {name}` | Create an empty list. |
+| `/setting_trivia_list_remove` | Delete a list (must not be referenced by any channel). |
+| `/setting_trivia_list_show` | Browse questions of a list (paginated). |
+| `/setting_trivia_add {title} {question} {answer} [answer_context]` | Add a question to a list (with one initial wording). |
+| `/setting_trivia_add_variation {trivia_id} {wording}` | Append another wording to an existing question. |
+| `/setting_trivia_remove {trivia_id}` | Remove a question by ID. |
 
-All Dev Commands are only executable as the Bot Developer.
-This depends on whom the owner of the Bot is.
+**Channel bindings (Admin):**
 
-> `/shutdown`
+| Command                                                                      | Description                                                                                                                 |
+|------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `/setting_trivia_set_channel {channel} {schedule} {response} [mode] [order]` | Bind a channel to a list. `schedule` is a 5-field cron expression (UTC), `response` is seconds before the answer is revealed. |
+| `/setting_trivia_reset_channel {channel}`                                    | Unbind a channel.                                                                                                           |
+| `/setting_trivia_show_mappings`                                              | Show all channel→list bindings + next-fire times.                                                                           |
+| `/setting_trivia_update_schedule {channel} {schedule}`                       | Change a channel's cron schedule.                                                                                           |
+| `/setting_trivia_update_response {channel} {response}`                       | Change a channel's response time.                                                                                           |
+| `/commands_trivia`                                                           | List all trivia-related slash commands (clickable mentions).                                                                |
 
-Shuts down the Bot.
+### Dev (owner only, visible only on `DEBUG_GUILD_IDS`)
 
-> `/restart`
-
-Restarts the Bot [currently not working].
-
-> `/load {Cog}`
-
-Loads a Cog.
-
-> `/unload {Cog}`
-
-Unloads a Cog
-
-> `/reload {Cog}`
-
-Reloads a Cog.
-
-> `/update_git`
-
-Pulls the newest version of the Bot from git.
+| Command                                         | Description                                                                             |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------|
+| `/status`                                       | Heartbeat ping.                                                                         |
+| `/log [lines_per_page]`                         | Paginated terminal log viewer with line/page navigation.                                |
+| `/shutdown`                                     | Stop the bot (no restart).                                                              |
+| `/restart`                                      | Stop with exit code 42 (the start script restarts).                                     |
+| `/update_git`                                   | Run `git pull` in the repo.                                                             |
+| `/export_guilds`                                | Download the live `guilds.json`.                                                        |
+| `/export_trivia {guild_id}`                     | Download a guild's trivia JSON.                                                         |
+| `/inject_trivia {guild_id} {attachment} [mode]` | Upload a trivia JSON (`replace` overwrites all lists, `merge` overwrites list-by-list). |
