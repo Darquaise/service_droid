@@ -44,7 +44,10 @@ class TriviaQuestion:
 
 
 class TriviaChannelConfig:
-    __slots__ = "channel_id", "list_name", "schedule", "response", "mode", "order", "_next_index"
+    __slots__ = (
+        "channel_id", "list_name", "schedule", "response", "mode", "order",
+        "_next_index", "pending",
+    )
 
     def __init__(
             self, channel_id: int, list_name: str, schedule: str, response: int,
@@ -58,19 +61,23 @@ class TriviaChannelConfig:
         self.order = order
 
         self._next_index = 0
+        self.pending: dict | None = None
 
     def to_json(self) -> dict:
-        return {
+        data = {
             "list": self.list_name,
             "schedule": self.schedule,
             "response": self.response,
             "mode": self.mode,
             "order": self.order,
         }
+        if self._next_index:
+            data["next_index"] = self._next_index
+        return data
 
     @classmethod
     def from_json(cls, channel_id: int, data: dict) -> "TriviaChannelConfig":
-        return cls(
+        obj = cls(
             channel_id=channel_id,
             list_name=data["list"],
             schedule=data["schedule"],
@@ -78,6 +85,19 @@ class TriviaChannelConfig:
             mode=data.get("mode", MODE_TIMED),
             order=data.get("order", ORDER_RANDOM),
         )
+        obj._next_index = int(data.get("next_index", 0))
+        return obj
+
+    def set_pending(self, due_at: float, question: "TriviaQuestion") -> None:
+        self.pending = {
+            "due_at": due_at,
+            "title": question.title,
+            "answer": question.answer,
+            "answer_context": question.answer_context,
+        }
+
+    def clear_pending(self) -> None:
+        self.pending = None
 
     def next_index(self, length: int) -> int:
         idx = self._next_index % length

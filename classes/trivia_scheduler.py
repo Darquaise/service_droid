@@ -54,6 +54,8 @@ class TriviaScheduler:
 
     async def _loop_for_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
         try:
+            await self._deliver_pending(channel_id, config)
+
             while True:
                 now = datetime.now(timezone.utc)
                 try:
@@ -75,6 +77,48 @@ class TriviaScheduler:
         except asyncio.CancelledError:
             pass
 
+    async def _deliver_pending(self, channel_id: int, config: TriviaChannelConfig) -> None:
+        pending = config.pending
+        if pending is None:
+            return
+
+        now_ts = datetime.now(timezone.utc).timestamp()
+        remaining = pending["due_at"] - now_ts
+
+        if remaining <= 0:
+            _log(f"channel {channel_id}: pending reveal due {-remaining:.0f}s ago, discarding")
+            config.clear_pending()
+            self.bot.settings.update_trivia_pending()
+            return
+
+        await asyncio.sleep(remaining)
+
+        channel = self.bot.get_channel(channel_id)
+        if not isinstance(channel, discord.TextChannel):
+            _log(f"channel {channel_id}: not accessible for pending reveal, discarding")
+            config.clear_pending()
+            self.bot.settings.update_trivia_pending()
+            return
+
+        description = f"**{pending['answer']}**"
+        if pending.get("answer_context"):
+            description += f"\n\n{pending['answer_context']}"
+        embed = discord.Embed(
+            title=f"Answer: {pending['title']}",
+            description=description,
+            colour=0x2ecc71,
+        )
+        try:
+            await asyncio.shield(channel.send(embed=embed))
+        except asyncio.CancelledError:
+            config.clear_pending()
+            self.bot.settings.update_trivia_pending()
+            raise
+        except Exception as e:
+            _log(f"channel {channel_id}: failed to send pending reveal: {e!r}")
+        config.clear_pending()
+        self.bot.settings.update_trivia_pending()
+
     async def _fire(self, channel_id: int, config: TriviaChannelConfig) -> None:
         channel = self.bot.get_channel(channel_id)
         if channel is None or not isinstance(channel, discord.TextChannel):
@@ -92,6 +136,8 @@ class TriviaScheduler:
             return
 
         question = self._pick_question(config, questions)
+        if config.order == ORDER_SEQUENTIAL:
+            self.bot.settings.update_guilds()
 
         if config.mode == MODE_TIMED:
             await self._fire_timed(channel, config, question)
@@ -124,6 +170,10 @@ class TriviaScheduler:
         embed.set_footer(text=f"Answer in {config.response}s")
         await channel.send(embed=embed)
 
+        due_at = datetime.now(timezone.utc).timestamp() + config.response
+        config.set_pending(due_at, question)
+        self.bot.settings.update_trivia_pending()
+
         # Schedule the answer reveal as its own one-shot task — when it finishes,
         # the question loop is already waiting for the next cron tick.
         prev = self._answer_tasks.pop(channel.id, None)
@@ -141,18 +191,31 @@ class TriviaScheduler:
     ) -> None:
         try:
             await asyncio.sleep(config.response)
-            description = f"**{question.answer}**"
-            if question.answer_context:
-                description += f"\n\n{question.answer_context}"
-            embed = discord.Embed(
-                title=f"Answer: {question.title}",
-                description=description,
-                colour=0x2ecc71,
-            )
-            await channel.send(embed=embed)
         except asyncio.CancelledError:
-            pass
+            # Cancelled before the answer was sent: leave pending for the next run.
+            self._answer_tasks.pop(channel.id, None)
+            raise
+
+        description = f"**{question.answer}**"
+        if question.answer_context:
+            description += f"\n\n{question.answer_context}"
+        embed = discord.Embed(
+            title=f"Answer: {question.title}",
+            description=description,
+            colour=0x2ecc71,
+        )
+        try:
+            # Shield: if a cancel arrives mid-send, wait for the send to
+            # finish before propagating, so pending can be cleared atomically.
+            await asyncio.shield(channel.send(embed=embed))
+        except asyncio.CancelledError:
+            config.clear_pending()
+            self.bot.settings.update_trivia_pending()
+            self._answer_tasks.pop(channel.id, None)
+            raise
         except Exception as e:
             _log(f"channel {channel.id}: failed to send answer: {e!r}")
-        finally:
-            self._answer_tasks.pop(channel.id, None)
+
+        config.clear_pending()
+        self.bot.settings.update_trivia_pending()
+        self._answer_tasks.pop(channel.id, None)

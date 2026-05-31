@@ -160,7 +160,10 @@ class TriviaSettingsCog(commands.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_trivia_add(
             self, ctx: ApplicationContext,
-            title: str, question: str, answer: str, answer_context: str = ""
+            title: discord.Option(str, "Short title shown on the question card"),
+            question: discord.Option(str, "The question text (further wordings via /setting_trivia_add_variation)"),
+            answer: discord.Option(str, "The correct answer"),
+            answer_context: discord.Option(str, "Optional explanation shown next to the answer", default=""),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
@@ -285,6 +288,7 @@ class TriviaSettingsCog(commands.Cog):
         del guild.trivia_channels[channel.id]
         self.bot.settings.update_guilds()
         _refresh_scheduler(self.bot, channel.id, None)
+        self.bot.settings.update_trivia_pending()
         return await ctx.respond(
             f"Trivia mapping for {channel.mention} removed.", ephemeral=True
         )

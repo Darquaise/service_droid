@@ -12,8 +12,12 @@ class TriviaCog(commands.Cog):
 
     async def _initial_schedule(self):
         await self.bot.wait_until_ready()
+        pending_data = self.bot.settings.load_trivia_pending()
         for guild in Guild.get_all():
             for cid, cfg in guild.trivia_channels.items():
+                raw = pending_data.get(str(cid))
+                if raw is not None:
+                    cfg.pending = raw
                 self.scheduler.schedule_channel(cid, cfg)
 
     def cog_unload(self):

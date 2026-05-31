@@ -19,7 +19,10 @@ def env_int_list(name: str) -> list[int]:
 
 
 class Settings:
-    __slots__ = "debug", "guilds_path", "trivia_path", "command_prefix", "owner_ids", "debug_guild_ids"
+    __slots__ = (
+        "debug", "guilds_path", "trivia_path", "trivia_pending_path",
+        "command_prefix", "owner_ids", "debug_guild_ids",
+    )
 
     def __init__(self):
         print(f"[{dt_now_as_text()}] loading settings...")
@@ -31,6 +34,7 @@ class Settings:
 
         self.guilds_path = "guilds.json"
         self.trivia_path = "trivia"
+        self.trivia_pending_path = os.path.join(self.trivia_path, "_pending.json")
 
         if not os.path.isfile(self.guilds_path):
             self.create_guilds_file()
@@ -60,6 +64,40 @@ class Settings:
             return
         handler.save(self.trivia_path)
         print(f"[{dt_now_as_text()}] trivia for guild {guild_id} updated")
+
+    def load_trivia_pending(self) -> dict:
+        if not os.path.isfile(self.trivia_pending_path):
+            return {}
+        try:
+            data = read_json(self.trivia_pending_path)
+        except Exception as e:
+            print(f"[{dt_now_as_text()}] could not read pending trivia ({e!r}), starting without it")
+            return {}
+        if not isinstance(data, dict):
+            print(f"[{dt_now_as_text()}] pending trivia file is malformed, starting without it")
+            return {}
+        # Drop entries that don't match the shape _deliver_pending expects, so a
+        # corrupt/hand-edited file can never crash the scheduler loop on startup.
+        valid: dict[str, dict] = {}
+        for cid, entry in data.items():
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("due_at"), (int, float))
+                and isinstance(entry.get("title"), str)
+                and isinstance(entry.get("answer"), str)
+            ):
+                valid[cid] = entry
+            else:
+                print(f"[{dt_now_as_text()}] discarding malformed pending entry for channel {cid}")
+        return valid
+
+    def update_trivia_pending(self) -> None:
+        pending: dict[str, dict] = {}
+        for guild in Guild.get_all():
+            for cid, cfg in guild.trivia_channels.items():
+                if cfg.pending is not None:
+                    pending[str(cid)] = cfg.pending
+        write_json(self.trivia_pending_path, pending)
 
     def create_guilds_file(self) -> None:
         print(f"[{dt_now_as_text()}] No guilds data found, creating new ones...")
