@@ -1,0 +1,44 @@
+name: deploy
+
+# Auto-deploy to ep3o on push: SSH in, pull the pushed branch, rebuild the container.
+#   main → prod  (/opt/service_droid)
+#   dev  → beta  (/opt/service_droid-beta)
+# Server IP / user live in repo secrets (this repo is public). The .env on the
+# server holds the secrets and is NOT in git; the deploy step requires it to exist.
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to ep3o
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EP3O_HOST }}
+          username: ${{ secrets.EP3O_USER }}
+          key: ${{ secrets.EP3O_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            case "${{ github.ref_name }}" in
+              main) DIR=/opt/service_droid ;;
+              dev)  DIR=/opt/service_droid-beta ;;
+              *)    echo "no deploy target for ${{ github.ref_name }}"; exit 0 ;;
+            esac
+            cd "$DIR"
+            if [ ! -d .git ]; then
+              git init -q
+              git remote add origin https://github.com/Darquaise/service_droid.git
+            fi
+            git fetch --depth 1 origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            test -f .env || { echo "::error::.env missing in $DIR"; exit 1; }
+            docker compose up -d --build
+            docker image prune -f

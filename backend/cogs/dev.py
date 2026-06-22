@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import logging
 from pathlib import Path
 
 import discord
@@ -9,10 +10,13 @@ from discord.ext import commands
 from classes import ServiceDroid, LogView, TriviaHandler, TriviaQuestion
 from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
 from classes.settings import env_int_list
+from logging_setup import log_file_path
 
 REPO_PATH = str(Path(__file__).resolve().parent.parent)
-LOG_PATH = f"{REPO_PATH}/logs/latest.log"
+LOG_PATH = log_file_path()
 DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS")
+
+logger = logging.getLogger(__name__)
 
 KEY_PERMS: list[tuple[str, str]] = [
     ("administrator", "Administrator"),
@@ -160,7 +164,7 @@ class DevelopmentCog(commands.Cog):
 
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
-        print('dev cog loaded')
+        logger.debug("dev cog loaded")
 
     @discord.slash_command(debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)

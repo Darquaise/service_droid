@@ -1,2 +1,0 @@
-py-cord>=2.8.0
-croniter>=6.2.2

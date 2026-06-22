@@ -1,9 +1,11 @@
+import logging
 import os
 
 from ios import read_json, write_json
-from converters import dt_now_as_text
 from .guild import Guild
 from .trivia import TriviaHandler
+
+logger = logging.getLogger(__name__)
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -25,15 +27,16 @@ class Settings:
     )
 
     def __init__(self):
-        print(f"[{dt_now_as_text()}] loading settings...")
+        logger.info("loading settings...")
 
         self.debug = _env_bool("DEBUG", False)
         self.command_prefix = os.environ.get("COMMAND_PREFIX", "!")
         self.owner_ids = env_int_list("OWNER_IDS")
         self.debug_guild_ids = env_int_list("DEBUG_GUILD_IDS")
 
-        self.guilds_path = "guilds.json"
-        self.trivia_path = "trivia"
+        data_dir = os.environ.get("DATA_DIR", ".")
+        self.guilds_path = os.path.join(data_dir, "guilds.json")
+        self.trivia_path = os.path.join(data_dir, "trivia")
         self.trivia_pending_path = os.path.join(self.trivia_path, "_pending.json")
 
         if not os.path.isfile(self.guilds_path):
@@ -56,14 +59,14 @@ class Settings:
 
     def update_guilds(self) -> None:
         write_json(self.guilds_path, self.get_live_guilds_dict())
-        print(f"[{dt_now_as_text()}] guild settings updated")
+        logger.debug("guild settings updated")
 
     def update_trivia(self, guild_id: int) -> None:
         handler = TriviaHandler.get(guild_id)
         if handler is None:
             return
         handler.save(self.trivia_path)
-        print(f"[{dt_now_as_text()}] trivia for guild {guild_id} updated")
+        logger.debug("trivia for guild %s updated", guild_id)
 
     def load_trivia_pending(self) -> dict:
         if not os.path.isfile(self.trivia_pending_path):
@@ -71,10 +74,10 @@ class Settings:
         try:
             data = read_json(self.trivia_pending_path)
         except Exception as e:
-            print(f"[{dt_now_as_text()}] could not read pending trivia ({e!r}), starting without it")
+            logger.warning("could not read pending trivia (%r), starting without it", e)
             return {}
         if not isinstance(data, dict):
-            print(f"[{dt_now_as_text()}] pending trivia file is malformed, starting without it")
+            logger.warning("pending trivia file is malformed, starting without it")
             return {}
         # Drop entries that don't match the shape _deliver_pending expects, so a
         # corrupt/hand-edited file can never crash the scheduler loop on startup.
@@ -88,7 +91,7 @@ class Settings:
             ):
                 valid[cid] = entry
             else:
-                print(f"[{dt_now_as_text()}] discarding malformed pending entry for channel {cid}")
+                logger.warning("discarding malformed pending entry for channel %s", cid)
         return valid
 
     def update_trivia_pending(self) -> None:
@@ -100,5 +103,5 @@ class Settings:
         write_json(self.trivia_pending_path, pending)
 
     def create_guilds_file(self) -> None:
-        print(f"[{dt_now_as_text()}] No guilds data found, creating new ones...")
+        logger.info("no guilds data found, creating new ones...")
         write_json(self.guilds_path, {})

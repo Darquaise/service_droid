@@ -1,11 +1,19 @@
+import logging
 import os
 import discord
+from pathlib import Path
 
-from classes import Settings
-from classes import ServiceDroid
+from dotenv import load_dotenv
 
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+
+from classes import Settings, ServiceDroid
 from cogs.startup import StartupCog
+from logging_setup import setup_logging
 
+setup_logging()
+logger = logging.getLogger(__name__)
 
 intents = discord.Intents.all()
 settings = Settings()
@@ -30,9 +38,9 @@ try:
 except RuntimeError as e:
     if getattr(bot, "exit_code", 0) == 0:
         raise
-    print(f"bot.run raised during requested shutdown: {e}")
+    logger.warning("bot.run raised during requested shutdown: %s", e)
 
 code = getattr(bot, "exit_code", 0)
-print("code:", code)
+logger.info("exit code: %s", code)
 if code != 0:
     raise SystemExit(code)

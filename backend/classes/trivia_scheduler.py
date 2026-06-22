@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import discord
 
-from converters import dt_now_as_text
 from .trivia import TriviaChannelConfig, TriviaHandler, TriviaQuestion
 from .trivia_modes import (
     MODE_AI,
@@ -19,9 +19,11 @@ from .trivia_modes import (
 if TYPE_CHECKING:
     from .bot import ServiceDroid
 
+logger = logging.getLogger(__name__)
+
 
 def _log(msg: str) -> None:
-    print(f"[{dt_now_as_text()}] [trivia] {msg}")
+    logger.info("[trivia] %s", msg)
 
 
 class TriviaScheduler:

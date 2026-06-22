@@ -6,12 +6,9 @@ A Discord bot built on py-cord. Originally created for Stellaris YouTuber [Ep3o]
 
 ## Setup
 
-**Requirements:** Python 3.14 and a Discord bot token.
+**Requirements:** Docker (with Compose) and a Discord bot token.
 
-1. Clone the repo and create the virtual environment **with Python 3.14** in `.venv`:
-   ```bash
-   python3.14 -m venv .venv
-   ```
+1. Clone the repo.
 2. Copy `.env.example` to `.env` and fill in the values:
    ```
    DISCORD_TOKEN=<your bot token>
@@ -19,12 +16,23 @@ A Discord bot built on py-cord. Originally created for Stellaris YouTuber [Ep3o]
    COMMAND_PREFIX=!
    OWNER_IDS=<comma-separated user IDs>
    DEBUG_GUILD_IDS=<comma-separated guild IDs for dev-only slash commands>
+   COMPOSE_PROJECT_NAME=service-droid
    ```
-3. Run `./start.sh`. It launches `.start.sh` inside a detached `screen` session named `service_droid`. `.start.sh` sources `.env`, activates the venv, installs `requirements.txt`, runs `main.py`, and rotates logs into `logs/`. It auto-restarts when the bot exits with code 42.
+3. Start it:
+   ```bash
+   docker compose up -d --build
+   ```
+The container restarts automatically on exit (`restart: unless-stopped`), so `/restart`and crashes both recover on their own.
+Follow the log with `docker compose logs -f bot`.
+
+**Updating:** `git pull && docker compose up -d --build`.
+On the maintained server this is automatic — pushing to `main` (prod) or `dev` (beta) triggers a GitHub Actions deploy.
 
 ## Persistence
 
-State is stored as JSON files next to the bot and written automatically — you never edit these by hand. Back them up if you care about the data:
+State is stored as JSON files and written automatically — you never edit these by hand.
+In the container they live on the **`sd-data` Docker volume** (mounted at `/app/data`);
+back up that volume if you care about the data:
 
 - `guilds.json` — per-guild config (LFG channels, host roles, Galatron state, Trivia mappings, sequential cursor).
 - `trivia/<guild_id>.json` — per-guild Trivia question lists.
@@ -99,14 +107,14 @@ Per-channel scheduled trivia using cron expressions. Each channel binds to a nam
 
 **Channel bindings (Admin):**
 
-| Command                                                                      | Description                                                                                                                 |
-|------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| Command                                                                      | Description                                                                                                                   |
+|------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `/setting_trivia_set_channel {channel} {schedule} {response} [mode] [order]` | Bind a channel to a list. `schedule` is a 5-field cron expression (UTC), `response` is seconds before the answer is revealed. |
-| `/setting_trivia_reset_channel {channel}`                                    | Unbind a channel.                                                                                                           |
-| `/setting_trivia_show_mappings`                                              | Show all channel→list bindings + next-fire times.                                                                           |
-| `/setting_trivia_update_schedule {channel} {schedule}`                       | Change a channel's cron schedule.                                                                                           |
-| `/setting_trivia_update_response {channel} {response}`                       | Change a channel's response time.                                                                                           |
-| `/commands_trivia`                                                           | List all trivia-related slash commands (clickable mentions).                                                                |
+| `/setting_trivia_reset_channel {channel}`                                    | Unbind a channel.                                                                                                             |
+| `/setting_trivia_show_mappings`                                              | Show all channel→list bindings + next-fire times.                                                                             |
+| `/setting_trivia_update_schedule {channel} {schedule}`                       | Change a channel's cron schedule.                                                                                             |
+| `/setting_trivia_update_response {channel} {response}`                       | Change a channel's response time.                                                                                             |
+| `/commands_trivia`                                                           | List all trivia-related slash commands (clickable mentions).                                                                  |
 
 ### Dev (owner only, visible only on `DEBUG_GUILD_IDS`)
 
@@ -115,7 +123,7 @@ Per-channel scheduled trivia using cron expressions. Each channel binds to a nam
 | `/status`                                       | Heartbeat ping.                                                                         |
 | `/log [lines_per_page]`                         | Paginated terminal log viewer with line/page navigation.                                |
 | `/shutdown`                                     | Stop the bot (no restart).                                                              |
-| `/restart`                                      | Stop with exit code 42 (the start script restarts).                                     |
+| `/restart`                                      | Stop with exit code 42; Docker's restart policy brings the container back.              |
 | `/update_git`                                   | Run `git pull` in the repo.                                                             |
 | `/export_guilds`                                | Download the live `guilds.json`.                                                        |
 | `/export_trivia {guild_id}`                     | Download a guild's trivia JSON.                                                         |

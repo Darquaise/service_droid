@@ -1,9 +1,11 @@
+import logging
 import discord
 from discord.ext import commands
 from datetime import datetime
 
 from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed
-from converters import dt_now_as_text
+
+logger = logging.getLogger(__name__)
 
 
 class LFGCog(discord.Cog):
@@ -144,4 +146,4 @@ class LFGCog(discord.Cog):
                 "All cooldowns have been reset!",
                 ephemeral=True
             )
-            print(f"[{dt_now_as_text()}] cooldowns of {ctx.guild.name} ({ctx.guild.id}) reset")
+            logger.info("cooldowns of %s (%s) reset", ctx.guild.name, ctx.guild.id)

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import random
 
-from classes import ServiceDroid, Guild, Message
+from classes import ServiceDroid, Guild
 
 
 class EventsCog(commands.Cog):

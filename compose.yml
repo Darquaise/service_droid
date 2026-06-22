@@ -1,0 +1,22 @@
+name: ${COMPOSE_PROJECT_NAME:-service-droid}
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      - sd-data:/app/data
+    restart: unless-stopped
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  sd-data: { }

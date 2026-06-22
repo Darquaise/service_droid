@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import discord
 from datetime import timedelta, datetime
 
@@ -6,6 +7,8 @@ from .base.guildbase import GuildBase
 from .galatron import GalatronHistory
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 from .trivia import TriviaChannelConfig
+
+logger = logging.getLogger(__name__)
 
 
 class Guild(GuildBase):
@@ -96,7 +99,7 @@ class Guild(GuildBase):
             channel_id = int(channel_data['id'])
             channel = guild.get_channel(channel_id)
             if not isinstance(channel, discord.TextChannel):
-                print(f"channel {channel_id} not found or not a text channel")
+                logger.warning("channel %s not found or not a text channel", channel_id)
                 continue
             lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
 

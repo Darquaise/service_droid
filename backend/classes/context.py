@@ -56,5 +56,4 @@ class ApplicationContext(discord.ApplicationContext):
 
     @property
     def own_perms(self) -> discord.Permissions:
-        print("own perms", self.message)
         return self.channel.permissions_for(self.guild.me)

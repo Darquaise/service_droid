@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.claude
+**/.venv
+**/__pycache__
+**/.ruff_cache
+*.pyc
+.env
+**/.env
+backend/guilds.json
+backend/trivia
+backend/logs
+*.md
