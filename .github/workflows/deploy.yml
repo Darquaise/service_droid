@@ -1,8 +1,8 @@
 name: deploy
 
 # Auto-deploy to ep3o on push: SSH in, pull the pushed branch, rebuild the container.
-#   main → prod  (/opt/service_droid)
-#   dev  → beta  (/opt/service_droid-beta)
+#   main → (/opt/service_droid)
+#   dev  → (/opt/service_droid_dev)
 # Server IP / user live in repo secrets (this repo is public). The .env on the
 # server holds the secrets and is NOT in git; the deploy step requires it to exist.
 on:
@@ -29,7 +29,7 @@ jobs:
             set -e
             case "${{ github.ref_name }}" in
               main) DIR=/opt/service_droid ;;
-              dev)  DIR=/opt/service_droid-beta ;;
+              dev)  DIR=/opt/service_droid_dev ;;
               *)    echo "no deploy target for ${{ github.ref_name }}"; exit 0 ;;
             esac
             cd "$DIR"
