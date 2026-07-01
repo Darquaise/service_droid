@@ -70,15 +70,12 @@ class LFGSettingsCog(discord.Cog):
                 ephemeral=True
             )
         else:
-            ctx.g.set_cooldown(role, time_amount, time_unit)
+            await ctx.g.set_cooldown(role, time_amount, time_unit)
             if isinstance(new_time, LFGNotAllowed):
-                self.bot.settings.update_guilds()
                 return await ctx.respond(
                     f"{role.mention} now can't use LFG commands anymore as long as this role is the highest Host Role the member has.",
                     ephemeral=True
                 )
-
-            self.bot.settings.update_guilds()
 
             return await ctx.respond(
                 f"The cooldown for {role.mention} has been set to {time_amount} {time_unit}.",
@@ -97,8 +94,7 @@ class LFGSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-        del ctx.g.host_roles[role.id]
-        self.bot.settings.update_guilds()
+        await ctx.g.remove_host_role(role.id)
 
         return await ctx.respond(
             f"{role.mention} isn't a Host Role anymore.",
@@ -115,28 +111,26 @@ class LFGSettingsCog(discord.Cog):
             channel: discord.Option(discord.TextChannel, "Channel that should accept /lfg"),
             role: discord.Option(discord.Role, "Role to be mentioned by /lfg in this channel"),
     ):
-        if channel.id in ctx.g.lfg_channels.keys():
-            if role in ctx.lfg.roles:
-                return await ctx.respond(
-                    f"{role.mention} is already being mentioned on LFG in {channel.mention}!",
-                    ephemeral=True
-                )
-            ctx.g.lfg_channels[channel.id].roles.append(role)
-            await ctx.respond(
+        was_present = channel.id in ctx.g.lfg_channels
+        added = await ctx.g.add_lfg_role(channel, role)
+        if not added:
+            return await ctx.respond(
+                f"{role.mention} is already being mentioned on LFG in {channel.mention}!",
+                ephemeral=True
+            )
+
+        if was_present:
+            return await ctx.respond(
                 f"{role.mention} has been added to {channel.mention}\n"
                 "Roles now being mentioned in this channel: "
                 f"{' '.join(ctx.lfg.roles_str)}",
                 ephemeral=True
             )
-        else:
-            ctx.g.add_lfg_channel(channel, [role])
-            await ctx.respond(
-                f"{channel.mention} is now a LFG Channel with the {role.mention} role being mentioned.\n"
-                f"To add more use the same command with the same channel selected, but a different role.",
-                ephemeral=True
-            )
-
-        return self.bot.settings.update_guilds()
+        return await ctx.respond(
+            f"{channel.mention} is now a LFG Channel with the {role.mention} role being mentioned.\n"
+            f"To add more use the same command with the same channel selected, but a different role.",
+            ephemeral=True
+        )
 
     @discord.slash_command(description="Remove a LFG Channel.")
     @discord.default_permissions(administrator=True)
@@ -145,8 +139,7 @@ class LFGSettingsCog(discord.Cog):
             channel: discord.Option(discord.TextChannel, "LFG channel to remove"),
     ):
         if channel.id in ctx.g.lfg_channels:
-            del ctx.g.lfg_channels[channel.id]
-            self.bot.settings.update_guilds()
+            await ctx.g.remove_lfg_channel(channel.id)
             await ctx.respond(
                 f"{channel.mention} is no longer a LFG Channel.",
                 ephemeral=True

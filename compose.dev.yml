@@ -1,0 +1,34 @@
+# LOCAL DEVELOPMENT DATABASE ONLY — never deployed.
+#
+# Production uses the shared Postgres via compose.yml (host "postgres" on the
+# external shared-db network). This file spins up a throwaway local Postgres so
+# the bot can run fully offline, independent of the server DB. Managed by the
+# scripts in ./scripts (dev-start.sh / dev-stop.sh / dev-restart.sh / dev-reset.sh).
+#
+# Port 5433 on the host (not 5432) so it never clashes with another project's
+# local dev DB (e.g. grocery_manager).
+
+name: service-droid-dev
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: service_droid_app
+      POSTGRES_PASSWORD: service_droid
+      POSTGRES_DB: service_droid
+    ports:
+      # Loopback only; matches the local DATABASE_URL the dev scripts export.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Postgres 18+ stores data under /var/lib/postgresql/<version>/… so the
+      # persistent mount goes one level up (not /var/lib/postgresql/data).
+      - service-droid-dev-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U service_droid_app -d service_droid"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  service-droid-dev-db:

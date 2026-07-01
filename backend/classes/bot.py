@@ -1,8 +1,16 @@
+from typing import TYPE_CHECKING
+
 import discord
 from discord.ext import commands
 
+from store import dispose_engine
+
 from .settings import Settings
 from .context import Context, ApplicationContext
+
+if TYPE_CHECKING:
+    from store.notify import ChangeListener
+    from .trivia_scheduler import TriviaScheduler
 
 
 class ServiceDroid(commands.Bot):
@@ -10,6 +18,16 @@ class ServiceDroid(commands.Bot):
         super().__init__(*args, auto_sync_commands=False, **kwargs)
 
         self.settings = settings if settings else Settings()
+        # set by cogs/startup.py once the DB change-listener is running
+        self.change_listener: "ChangeListener | None" = None
+        # set by TriviaCog once the scheduler is up
+        self.trivia_scheduler: "TriviaScheduler | None" = None
+
+    async def close(self) -> None:
+        if self.change_listener is not None:
+            await self.change_listener.stop()
+        await dispose_engine()
+        await super().close()
 
     async def get_context(self, message: discord.Message, *, cls=Context):
         return await super().get_context(message, cls=cls)

@@ -14,4 +14,5 @@ RUN uv sync --no-dev --frozen
 
 COPY backend/ ./
 
-CMD ["python", "main.py"]
+# Alembic owns the schema: apply pending migrations, then start the bot.
+CMD ["sh", "-c", "alembic upgrade head && python main.py"]

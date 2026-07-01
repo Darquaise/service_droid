@@ -7,6 +7,9 @@ dependencies = [
     "py-cord>=2.8.0",
     "croniter>=6.2.2",
     "python-dotenv>=1.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
 ]
 
 [dependency-groups]

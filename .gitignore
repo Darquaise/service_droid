@@ -19,4 +19,7 @@ backend/guilds.json
 backend/trivia/
 backend/logs/
 
+# Local dev runtime (PID files + logs from scripts/dev-*.sh)
+/.dev/
+
 test.py

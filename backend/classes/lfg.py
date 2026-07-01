@@ -61,17 +61,6 @@ class LFGHost:
     def get_cooldown_text(self):
         return f"{self._amount} {self._unit}"
 
-    @classmethod
-    def from_json(cls, data: dict, role: discord.Role):
-        return cls(role, data['cooldown'], data['cooldown_type'])
-
-    def to_json(self):
-        return {
-            "id": self.role.id,
-            "cooldown": self._amount,
-            "cooldown_type": self._unit
-        }
-
 
 class LFGChannel:
     __slots__ = "channel", "roles"
@@ -86,14 +75,3 @@ class LFGChannel:
                 self.roles.remove(role)
                 return True
         return False
-
-    @classmethod
-    def from_json(cls, data: dict, channel: discord.TextChannel):
-        roles = [x for x in filter(None, [channel.guild.get_role(role_id) for role_id in data['roles']])]
-        return cls(channel, roles)
-
-    def to_json(self):
-        return {
-            "id": self.channel.id,
-            "roles": [role.id for role in self.roles]
-        }

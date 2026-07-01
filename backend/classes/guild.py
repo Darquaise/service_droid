@@ -1,12 +1,18 @@
 from __future__ import annotations
 import logging
+from typing import TYPE_CHECKING
 import discord
 from datetime import timedelta, datetime
+
+from store import galatron_repo, guild_repo, lfg_repo, trivia_repo
 
 from .base.guildbase import GuildBase
 from .galatron import GalatronHistory
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 from .trivia import TriviaChannelConfig
+
+if TYPE_CHECKING:
+    from store.state import GuildState
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +22,7 @@ class Guild(GuildBase):
         "host_roles", "lfg_channels",
         "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
         "galatron_history", "galatron_last_used", "galatron_total_times_used",
-        "trivia_channels", "trivia_mode",
+        "trivia_channels",
     )
 
     def __init__(
@@ -24,7 +30,7 @@ class Guild(GuildBase):
             galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
             galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
             galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int],
-            trivia_channels: dict[int, TriviaChannelConfig], trivia_mode: str
+            trivia_channels: dict[int, TriviaChannelConfig]
     ):
         super().__init__(guild)
 
@@ -43,7 +49,6 @@ class Guild(GuildBase):
 
         # trivia stuff
         self.trivia_channels = trivia_channels
-        self.trivia_mode = trivia_mode
 
         self._instances[self.id] = self
 
@@ -65,113 +70,145 @@ class Guild(GuildBase):
     def add_lfg_channel(self, channel: discord.TextChannel, roles: list[discord.Role]) -> None:
         self.lfg_channels[channel.id] = LFGChannel(channel, roles)
 
-    def set_cooldown(self, role: discord.Role, amount: int, unit: str) -> None:
+    # LFG
+    async def set_cooldown(self, role: discord.Role, amount: int, unit: str) -> None:
         if role.id in self.host_roles:
             self.host_roles[role.id].set_cooldown(amount, unit)
         else:
             self.host_roles[role.id] = LFGHost(role, amount, unit)
+        await lfg_repo.upsert_host_role(self.id, role.id, amount, unit)
 
-    def remove_lfg_role(self, channel_id: int, role_id: int):
-        if channel_id not in self.lfg_channels.keys():
-            return
+    async def remove_host_role(self, role_id: int) -> None:
+        self.host_roles.pop(role_id, None)
+        await lfg_repo.delete_host_role(self.id, role_id)
 
-        channel = self.lfg_channels[channel_id]
+    async def add_lfg_role(self, channel: discord.TextChannel, role: discord.Role) -> bool:
+        existing = self.lfg_channels.get(channel.id)
+        if existing is not None:
+            if any(r.id == role.id for r in existing.roles):
+                return False
+            existing.roles.append(role)
+        else:
+            self.add_lfg_channel(channel, [role])
+        role_ids = [r.id for r in self.lfg_channels[channel.id].roles]
+        await lfg_repo.set_channel_roles(self.id, channel.id, role_ids)
+        return True
 
-        for role in channel.roles:
-            if role.id == role_id:
-                if len(channel.roles) > 1:
-                    channel.remove_role(role_id)
-                else:
-                    del self.lfg_channels[channel_id]
+    async def remove_lfg_channel(self, channel_id: int) -> None:
+        self.lfg_channels.pop(channel_id, None)
+        await lfg_repo.delete_channel(self.id, channel_id)
+
+    # Galatron
+    async def set_galatron_role(self, role: discord.Role | None) -> None:
+        self.galatron_role = role
+        await guild_repo.set_galatron_role(self.id, role.id if role else None)
+
+    async def set_galatron_chance(self, chance: float) -> None:
+        self.galatron_chance = chance
+        await guild_repo.set_galatron_chance(self.id, chance)
+
+    async def set_galatron_cooldown(self, cooldown: timedelta) -> None:
+        self.galatron_cooldown = cooldown
+        await guild_repo.set_galatron_cooldown(self.id, int(cooldown.total_seconds()))
+
+    async def add_galatron_channel(self, channel: discord.TextChannel) -> None:
+        self.galatron_channels.append(channel)
+        await galatron_repo.add_channel(self.id, channel.id)
+
+    async def remove_galatron_channel(self, channel: discord.TextChannel) -> None:
+        self.galatron_channels.remove(channel)
+        await galatron_repo.delete_channel(self.id, channel.id)
+
+    async def galatron_register_attempt(self, member: discord.Member) -> None:
+        now = datetime.now().replace(microsecond=0)
+        self.galatron_last_used[member.id] = now
+        total = await galatron_repo.register_attempt(self.id, member.id, now.timestamp())
+        self.galatron_total_times_used[member.id] = total
+
+    async def galatron_add_win(self, member: discord.Member) -> None:
+        ts = datetime.now().replace(microsecond=0)
+        self.galatron_history.add_entry(member, ts)
+        await galatron_repo.append_history(self.id, member.id, ts.timestamp())
+
+    async def galatron_increment_total(self, member: discord.Member) -> None:
+        total = await galatron_repo.increment_total(self.id, member.id)
+        self.galatron_total_times_used[member.id] = total
+
+    async def galatron_reset(self) -> None:
+        self.galatron_history = GalatronHistory(self.guild, [])
+        self.galatron_last_used = {}
+        self.galatron_total_times_used = {}
+        await galatron_repo.clear_galatron(self.id)
+
+    # Trivia
+    async def set_trivia_channel(self, config: TriviaChannelConfig) -> None:
+        self.trivia_channels[config.channel_id] = config
+        await trivia_repo.upsert_channel(self.id, config)
+
+    async def update_trivia_channel(self, config: TriviaChannelConfig) -> None:
+        await trivia_repo.upsert_channel(self.id, config)
+
+    async def remove_trivia_channel(self, channel_id: int) -> None:
+        self.trivia_channels.pop(channel_id, None)
+        await trivia_repo.delete_channel(self.id, channel_id)
+        await trivia_repo.delete_pending(channel_id)
 
     @classmethod
-    def from_json(cls, guild: discord.Guild, data: dict):
+    def from_state(cls, guild: discord.Guild, gs: "GuildState | None"):
+        if gs is None:
+            return cls(
+                guild, {}, {}, None, 0.005, timedelta(days=1), [],
+                GalatronHistory(guild, []), {}, {}, {},
+            )
+
         # lfg stuff
         host_roles: dict[int, LFGHost] = {}
-        for role_data in data.get('roles', []):
-            role_id = int(role_data['id'])
-            role = guild.get_role(role_id)
+        for hr in gs.host_roles:
+            role = guild.get_role(hr.role_id)
             if role:
-                host_roles[role_id] = LFGHost.from_json(role_data, role)
+                host_roles[hr.role_id] = LFGHost(role, hr.cooldown, hr.unit)
 
         lfg_channels: dict[int, LFGChannel] = {}
-        for channel_data in data.get('channels', []):
-            channel_id = int(channel_data['id'])
-            channel = guild.get_channel(channel_id)
+        for lc in gs.lfg_channels:
+            channel = guild.get_channel(lc.channel_id)
             if not isinstance(channel, discord.TextChannel):
-                logger.warning("channel %s not found or not a text channel", channel_id)
+                logger.warning("channel %s not found or not a text channel", lc.channel_id)
                 continue
-            lfg_channels[channel_id] = LFGChannel.from_json(channel_data, channel)
+            roles = [r for r in (guild.get_role(rid) for rid in lc.role_ids) if r]
+            lfg_channels[lc.channel_id] = LFGChannel(channel, roles)
 
         # galatron stuff
-        if "galatron" in data:
-            ga_data = data['galatron']
-            galatron_role = guild.get_role(ga_data['role'])
-            galatron_chance = ga_data['chance']
-            galatron_cooldown = timedelta(seconds=ga_data['cooldown'])
-            galatron_channels = [
-                c for c in (guild.get_channel(cid) for cid in ga_data['channels'])
-                if isinstance(c, discord.TextChannel)
-            ]
-            galatron_history = GalatronHistory(guild, ga_data['history'])
+        galatron_role = guild.get_role(gs.galatron_role_id) if gs.galatron_role_id else None
+        galatron_cooldown = timedelta(seconds=gs.galatron_cooldown_s)
+        galatron_channels = [
+            c for c in (guild.get_channel(cid) for cid in gs.galatron_channels)
+            if isinstance(c, discord.TextChannel)
+        ]
+        galatron_history = GalatronHistory(
+            guild,
+            [{"timestamp": e.occurred_at, "member_id": e.member_id} for e in gs.galatron_history],
+        )
 
-            cutoff = datetime.now() - galatron_cooldown
-            galatron_last_used = {
-                int(member_id): ts
-                for member_id, raw_ts in ga_data['last_used'].items()
-                if (ts := datetime.fromtimestamp(raw_ts)) >= cutoff}
-            galatron_total_times_used = {
-                int(member_id): amount for member_id, amount in ga_data['total_times_used'].items()
-            } if 'total_times_used' in ga_data else {}
-        else:
-            galatron_role = None
-            galatron_chance = 0.005
-            galatron_cooldown = timedelta(days=1)
-            galatron_channels = []
-            galatron_history = GalatronHistory(guild, [])
-            galatron_last_used = {}
-            galatron_total_times_used = {}
+        cutoff = datetime.now() - galatron_cooldown
+        galatron_last_used = {
+            m.member_id: ts
+            for m in gs.galatron_members
+            if m.last_used is not None and (ts := datetime.fromtimestamp(m.last_used)) >= cutoff
+        }
+        galatron_total_times_used = {m.member_id: m.total for m in gs.galatron_members}
 
         # trivia stuff
-        if "trivia" in data:
-            tr_data = data['trivia']
-            trivia_channels = {
-                int(channel_id): TriviaChannelConfig.from_json(int(channel_id), cfg_data)
-                for channel_id, cfg_data in tr_data.get('channels', {}).items()
-            }
-            trivia_mode = tr_data.get('mode', "NT")
-        else:
-            trivia_channels = {}
-            trivia_mode = "NT"
+        trivia_channels = {
+            tc.channel_id: TriviaChannelConfig(
+                tc.channel_id, tc.list_name, tc.schedule, tc.response,
+                tc.mode, tc.order, next_index=tc.next_index,
+            )
+            for tc in gs.trivia_channels
+        }
 
         return cls(
             guild, host_roles, lfg_channels,
-            galatron_role, galatron_chance, galatron_cooldown, galatron_channels,
+            galatron_role, gs.galatron_chance, galatron_cooldown, galatron_channels,
             galatron_history, galatron_last_used, galatron_total_times_used,
-            trivia_channels, trivia_mode
+            trivia_channels,
         )
-
-    def to_json(self):
-        return {
-            "name": self.guild.name,
-            "roles": [role.to_json() for role in self.host_roles.values()],
-            "channels": [channel.to_json() for channel in self.lfg_channels.values()],
-            "galatron": {
-                "role": self.galatron_role.id if self.galatron_role else None,
-                "chance": self.galatron_chance,
-                "cooldown": self.galatron_cooldown.days * 86_400 + self.galatron_cooldown.seconds,
-                "channels": [x.id for x in self.galatron_channels],
-                "history": self.galatron_history.history,
-                "last_used": {member_id: timestamp.timestamp() for member_id, timestamp in
-                              self.galatron_last_used.items()},
-                "total_times_used": self.galatron_total_times_used
-            },
-            "trivia": {
-                "channels": {str(cid): cfg.to_json() for cid, cfg in self.trivia_channels.items()},
-                "mode": self.trivia_mode
-            }
-        }
-
-    @classmethod
-    def from_nothing(cls, guild: discord.Guild):
-        return cls.from_json(guild, {})

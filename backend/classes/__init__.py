@@ -9,5 +9,6 @@ from .log_view import LogView
 from .trivia import TriviaHandler, TriviaQuestion, TriviaChannelConfig
 from .trivia_views import TriviaQuestionPaginatorView
 from .trivia_scheduler import TriviaScheduler
+from .reload import reload_guild
 from .command_listing import build_command_listing_embed
 from . import trivia_modes

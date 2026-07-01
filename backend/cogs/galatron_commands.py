@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 import math
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from classes import ApplicationContext, ServiceDroid, GalatronStatsView, GalatronLeaderboardView
 from classes.galatron_leaderboard_view import PRIME_DELAY
@@ -254,8 +254,6 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        member_id = ctx.author.id
-
         next_allowed = ctx.galatron.is_on_cooldown
         if next_allowed:
             return await ctx.respond(
@@ -269,18 +267,13 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        ctx.g.galatron_last_used[member_id] = datetime.now().replace(microsecond=0)
-
-        if member_id not in ctx.g.galatron_total_times_used:
-            ctx.g.galatron_total_times_used[member_id] = 0
-        ctx.g.galatron_total_times_used[member_id] += 1
+        await ctx.g.galatron_register_attempt(ctx.author)
 
         old_owner = ctx.galatron.current_owner
         roll = random.random()
 
         if roll < ctx.g.galatron_chance:
-            ctx.g.galatron_history.add_entry(ctx.author)
-            self.bot.settings.update_guilds()
+            await ctx.g.galatron_add_win(ctx.author)
 
             if old_owner:
                 await old_owner.remove_roles(ctx.galatron.role, reason="Galatron lost")
@@ -299,7 +292,6 @@ class GalatronCog(commands.Cog):
                 ephemeral=True,
             )
         else:
-            self.bot.settings.update_guilds()
             flavour = TextGenerator.fail_text_main()
             if old_owner:
                 owner_line = " " + TextGenerator.fail_owner_bound(old_owner.mention)

@@ -1,13 +1,14 @@
 import logging
-
+from functools import partial
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid, Guild, TriviaHandler
+from store import guild_repo, init_engine, load_state
+from store.notify import ChangeListener
+from classes import ServiceDroid, Guild, TriviaHandler, reload_guild
 from cogs.events import EventsCog
 from cogs.galatron_commands import GalatronCog
 from cogs.galatron_settings import GalatronSettingsCog
-
 from cogs.lfg_commands import LFGCog
 from cogs.lfg_settings import LFGSettingsCog
 from cogs.dev import DevelopmentCog
@@ -36,19 +37,18 @@ class StartupCog(commands.Cog):
         await self.bot.change_presence(activity=activity)
 
         # setup
-        # --> load guilds
-        guilds_data = self.bot.settings.get_guilds_data()
-        logger.debug("loaded guilds data: %s", guilds_data)
+        # --> open the database, make sure every current guild has a row
+        init_engine(self.bot.settings.database_url)
+        await guild_repo.ensure_guilds([(g.id, g.name) for g in self.bot.guilds])
+
+        # --> load guilds from the database into the in-memory registry
+        state = await load_state()
         for guild in self.bot.guilds:
-            if str(guild.id) in guilds_data:  # string because json makes keys strings
-                Guild.from_json(guild, guilds_data[str(guild.id)])
-            else:
-                Guild.from_nothing(guild)
-        self.bot.settings.update_guilds()
+            Guild.from_state(guild, state.guilds.get(guild.id))
         logger.info("loaded %d guild(s)", len(self.bot.guilds))
 
         # --> load trivia handlers
-        TriviaHandler.load_all(self.bot.settings.trivia_path, self.bot)
+        TriviaHandler.load_from_state(self.bot, state.trivia)
 
         # --> load cogs
         logger.info("loading cogs...")
@@ -62,6 +62,13 @@ class StartupCog(commands.Cog):
         self.bot.add_cog(TriviaCog(self.bot))
         self.bot.add_cog(TriviaSettingsCog(self.bot))
         logger.info("cogs loaded")
+
+        # --> start the live DB-sync listener
+        change_listener = ChangeListener(
+            self.bot.settings.database_url, partial(reload_guild, self.bot)
+        )
+        change_listener.start(self.bot.loop)
+        self.bot.change_listener = change_listener
 
         logger.info("registering slash commands...")
         await self.bot.sync_commands()

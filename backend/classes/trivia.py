@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
-
+from typing import TYPE_CHECKING
 import discord
 from croniter import croniter
 
-from ios import read_json, write_json
+from store import trivia_repo
+
 from .trivia_modes import MODE_TIMED, ORDER_RANDOM
+
+if TYPE_CHECKING:
+    from store.state import QuestionData
 
 
 class TriviaQuestion:
@@ -20,28 +23,6 @@ class TriviaQuestion:
         self.answer = answer
         self.answer_context = answer_context
 
-    def to_json(self) -> dict:
-        return {
-            "id": self.id,
-            "title": self.title,
-            "question": self.question,
-            "answer": self.answer,
-            "answer_context": self.answer_context,
-        }
-
-    @classmethod
-    def from_json(cls, data: dict) -> "TriviaQuestion":
-        question = data["question"]
-        if isinstance(question, str):
-            question = [question]
-        return cls(
-            trivia_id=int(data["id"]),
-            title=data["title"],
-            question=question,
-            answer=data["answer"],
-            answer_context=data.get("answer_context", ""),
-        )
-
 
 class TriviaChannelConfig:
     __slots__ = (
@@ -51,7 +32,7 @@ class TriviaChannelConfig:
 
     def __init__(
             self, channel_id: int, list_name: str, schedule: str, response: int,
-            mode: str = MODE_TIMED, order: str = ORDER_RANDOM,
+            mode: str = MODE_TIMED, order: str = ORDER_RANDOM, next_index: int = 0,
     ):
         self.channel_id = channel_id
         self.list_name = list_name
@@ -60,38 +41,14 @@ class TriviaChannelConfig:
         self.mode = mode
         self.order = order
 
-        self._next_index = 0
+        self._next_index = next_index
         self.pending: dict | None = None
 
-    def to_json(self) -> dict:
-        data = {
-            "list": self.list_name,
-            "schedule": self.schedule,
-            "response": self.response,
-            "mode": self.mode,
-            "order": self.order,
-        }
-        if self._next_index:
-            data["next_index"] = self._next_index
-        return data
-
-    @classmethod
-    def from_json(cls, channel_id: int, data: dict) -> "TriviaChannelConfig":
-        obj = cls(
-            channel_id=channel_id,
-            list_name=data["list"],
-            schedule=data["schedule"],
-            response=int(data["response"]),
-            mode=data.get("mode", MODE_TIMED),
-            order=data.get("order", ORDER_RANDOM),
-        )
-        obj._next_index = int(data.get("next_index", 0))
-        return obj
-
-    def set_pending(self, due_at: float, question: "TriviaQuestion") -> None:
+    def set_pending(self, due_at: float, question: "TriviaQuestion", wording: str) -> None:
         self.pending = {
             "due_at": due_at,
             "title": question.title,
+            "question": wording,
             "answer": question.answer,
             "answer_context": question.answer_context,
         }
@@ -103,6 +60,10 @@ class TriviaChannelConfig:
         idx = self._next_index % length
         self._next_index = idx + 1
         return idx
+
+    @property
+    def next_index_value(self) -> int:
+        return self._next_index
 
     def next_fire(self, now: datetime | None = None) -> datetime:
         base = now if now is not None else datetime.now(timezone.utc)
@@ -143,25 +104,25 @@ class TriviaHandler:
         return cls(guild, {})
 
     @classmethod
-    def load_all(cls, folder_path: str, bot: discord.Client) -> None:
-        if not os.path.isdir(folder_path):
-            return
-        for filename in os.listdir(folder_path):
-            if not filename.endswith(".json"):
-                continue
-            stem = filename[:-len(".json")]
-            if not stem.isdigit():
-                continue
-            guild_id = int(stem)
+    def load_from_state(
+            cls, bot: discord.Client, trivia_state: dict[int, dict[str, list["QuestionData"]]]
+    ) -> None:
+        for guild_id, lists_data in trivia_state.items():
             guild = bot.get_guild(guild_id)
-            if guild is None:
-                continue
-            data = read_json(os.path.join(folder_path, filename))
-            lists: dict[str, list[TriviaQuestion]] = {
-                name: [TriviaQuestion.from_json(q) for q in questions]
-                for name, questions in data.items()
-            }
-            cls(guild, lists)
+            if guild is not None:
+                cls.replace_for_guild(guild, lists_data)
+
+    @classmethod
+    def replace_for_guild(
+            cls, guild: discord.Guild, lists_data: dict[str, list["QuestionData"]]
+    ) -> "TriviaHandler":
+        lists: dict[str, list[TriviaQuestion]] = {
+            name: [
+                TriviaQuestion(q.local_id, q.title, q.question, q.answer, q.answer_context) for q in questions
+            ]
+            for name, questions in lists_data.items()
+        }
+        return cls(guild, lists)
 
     def get_list_names(self) -> list[str]:
         return list(self.lists.keys())
@@ -169,19 +130,21 @@ class TriviaHandler:
     def has_list(self, name: str) -> bool:
         return name in self.lists
 
-    def add_list(self, name: str) -> bool:
+    async def add_list(self, name: str) -> bool:
         if name in self.lists:
             return False
         self.lists[name] = []
+        await trivia_repo.add_list(self.guild_id, name)
         return True
 
-    def remove_list(self, name: str) -> bool:
+    async def remove_list(self, name: str) -> bool:
         if name not in self.lists:
             return False
         del self.lists[name]
+        await trivia_repo.remove_list(self.guild_id, name)
         return True
 
-    def add_question(
+    async def add_question(
             self, list_name: str, title: str, question: list[str], answer: str, answer_context: str
     ) -> TriviaQuestion | None:
         if list_name not in self.lists:
@@ -190,15 +153,17 @@ class TriviaHandler:
         next_id = max((q.id for q in questions), default=0) + 1
         new_q = TriviaQuestion(next_id, title, question, answer, answer_context)
         questions.append(new_q)
+        await trivia_repo.add_question(self.guild_id, list_name, next_id, title, question, answer, answer_context)
         return new_q
 
-    def remove_question(self, list_name: str, trivia_id: int) -> bool:
+    async def remove_question(self, list_name: str, trivia_id: int) -> bool:
         if list_name not in self.lists:
             return False
         questions = self.lists[list_name]
         for i, q in enumerate(questions):
             if q.id == trivia_id:
                 del questions[i]
+                await trivia_repo.remove_question(self.guild_id, list_name, trivia_id)
                 return True
         return False
 
@@ -210,17 +175,10 @@ class TriviaHandler:
                 return q
         return None
 
-    def add_variation(self, list_name: str, trivia_id: int, wording: str) -> TriviaQuestion | None:
+    async def add_variation(self, list_name: str, trivia_id: int, wording: str) -> TriviaQuestion | None:
         q = self.find_question(list_name, trivia_id)
         if q is None:
             return None
         q.question.append(wording)
+        await trivia_repo.set_question_wordings(self.guild_id, list_name, trivia_id, q.question)
         return q
-
-    def to_json(self) -> dict:
-        return {name: [q.to_json() for q in questions] for name, questions in self.lists.items()}
-
-    def save(self, folder_path: str) -> None:
-        os.makedirs(folder_path, exist_ok=True)
-        path = os.path.join(folder_path, f"{self.guild_id}.json")
-        write_json(path, self.to_json())

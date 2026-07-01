@@ -6,7 +6,7 @@ A Discord bot built on py-cord. Originally created for Stellaris YouTuber [Ep3o]
 
 ## Setup
 
-**Requirements:** Docker (with Compose) and a Discord bot token.
+**Requirements:** Docker (with Compose), a Discord bot token, and a reachable **PostgreSQL** database.
 
 1. Clone the repo.
 2. Copy `.env.example` to `.env` and fill in the values:
@@ -17,27 +17,18 @@ A Discord bot built on py-cord. Originally created for Stellaris YouTuber [Ep3o]
    OWNER_IDS=<comma-separated user IDs>
    DEBUG_GUILD_IDS=<comma-separated guild IDs for dev-only slash commands>
    COMPOSE_PROJECT_NAME=service-droid
+   DATABASE_URL=postgresql+psycopg://user:password@postgres:5432/service_droid
    ```
 3. Start it:
    ```bash
    docker compose up -d --build
    ```
-The container restarts automatically on exit (`restart: unless-stopped`), so `/restart`and crashes both recover on their own.
+On start, the container sets up the database automatically, then launches the bot.
+It restarts itself on exit, so `/restart` and crashes both recover on their own.
 Follow the log with `docker compose logs -f bot`.
 
 **Updating:** `git pull && docker compose up -d --build`.
-On the maintained server this is automatic — pushing to `main` (prod) or `dev` (beta) triggers a GitHub Actions deploy.
-
-## Persistence
-
-State is stored as JSON files and written automatically — you never edit these by hand.
-In the container they live on the **`sd-data` Docker volume** (mounted at `/app/data`);
-back up that volume if you care about the data:
-
-- `guilds.json` — per-guild config (LFG channels, host roles, Galatron state, Trivia mappings, sequential cursor).
-- `trivia/<guild_id>.json` — per-guild Trivia question lists.
-- `trivia/_pending.json` — short-lived state for a trivia question whose answer hasn't been revealed yet, so a restart between question and answer can still deliver the answer.
-- `.env` — secrets and bootstrap config. Gitignored.
+On the maintained server this is automatic — pushing to `main` (prod) or `dev` triggers a GitHub Actions deploy.
 
 ## Commands
 
@@ -92,8 +83,6 @@ Per-channel scheduled trivia using cron expressions. Each channel binds to a nam
 
 **Scheduling.** Cron expressions are evaluated in **UTC**. A schedule like `0 20 * * *` posts daily at 20:00 UTC, not at the server's local time. Use a UTC offset converter to translate from your wall-clock time.
 
-**Restart behaviour.** When a question has been posted but the bot restarts before the answer reveal, the pending answer is persisted to `trivia/_pending.json`. On the next start, if the reveal time still lies in the future, the answer is delivered on schedule; if it has already passed, it is silently discarded.
-
 **Lists (Admin):**
 | Command | Description |
 |---|---|
@@ -118,13 +107,12 @@ Per-channel scheduled trivia using cron expressions. Each channel binds to a nam
 
 ### Dev (owner only, visible only on `DEBUG_GUILD_IDS`)
 
-| Command                                         | Description                                                                             |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------|
-| `/status`                                       | Heartbeat ping.                                                                         |
-| `/log [lines_per_page]`                         | Paginated terminal log viewer with line/page navigation.                                |
-| `/shutdown`                                     | Stop the bot (no restart).                                                              |
-| `/restart`                                      | Stop with exit code 42; Docker's restart policy brings the container back.              |
-| `/update_git`                                   | Run `git pull` in the repo.                                                             |
-| `/export_guilds`                                | Download the live `guilds.json`.                                                        |
-| `/export_trivia {guild_id}`                     | Download a guild's trivia JSON.                                                         |
-| `/inject_trivia {guild_id} {attachment} [mode]` | Upload a trivia JSON (`replace` overwrites all lists, `merge` overwrites list-by-list). |
+| Command                 | Description                                                  |
+|-------------------------|--------------------------------------------------------------|
+| `/status`               | Heartbeat ping.                                              |
+| `/log [lines_per_page]` | Paginated terminal log viewer.                               |
+| `/list_guilds`          | List all servers the bot is in, with its permissions/roles.  |
+| `/reload [guild_id]`    | Reload a server's config from the database.                  |
+| `/shutdown`             | Stop the bot (no restart).                                   |
+| `/restart`              | Restart the bot.                                             |
+| `/update_git`           | Run `git pull` in the repo (unused on the container deploy). |

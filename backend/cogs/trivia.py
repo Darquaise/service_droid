@@ -1,5 +1,6 @@
 from discord.ext import commands
 
+from store import trivia_repo
 from classes import ServiceDroid, Guild, TriviaScheduler
 
 
@@ -12,7 +13,7 @@ class TriviaCog(commands.Cog):
 
     async def _initial_schedule(self):
         await self.bot.wait_until_ready()
-        pending_data = self.bot.settings.load_trivia_pending()
+        pending_data = await trivia_repo.load_pending()
         for guild in Guild.get_all():
             for cid, cfg in guild.trivia_channels.items():
                 raw = pending_data.get(str(cid))

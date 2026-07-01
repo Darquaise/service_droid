@@ -5,8 +5,9 @@ import logging
 import random
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-
 import discord
+
+from store import trivia_repo
 
 from .trivia import TriviaChannelConfig, TriviaHandler, TriviaQuestion
 from .trivia_modes import (
@@ -54,6 +55,9 @@ class TriviaScheduler:
         for cid in list(self._question_tasks):
             self.cancel_channel(cid)
 
+    def _clear_pending_detached(self, channel_id: int) -> None:
+        self.bot.loop.create_task(trivia_repo.delete_pending(channel_id))
+
     async def _loop_for_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
         try:
             await self._deliver_pending(channel_id, config)
@@ -90,7 +94,7 @@ class TriviaScheduler:
         if remaining <= 0:
             _log(f"channel {channel_id}: pending reveal due {-remaining:.0f}s ago, discarding")
             config.clear_pending()
-            self.bot.settings.update_trivia_pending()
+            await trivia_repo.delete_pending(channel_id)
             return
 
         await asyncio.sleep(remaining)
@@ -99,10 +103,13 @@ class TriviaScheduler:
         if not isinstance(channel, discord.TextChannel):
             _log(f"channel {channel_id}: not accessible for pending reveal, discarding")
             config.clear_pending()
-            self.bot.settings.update_trivia_pending()
+            await trivia_repo.delete_pending(channel_id)
             return
 
-        description = f"**{pending['answer']}**"
+        description = ""
+        if pending.get("question"):
+            description += f"> {pending['question']}\n\n"
+        description += f"**{pending['answer']}**"
         if pending.get("answer_context"):
             description += f"\n\n{pending['answer_context']}"
         embed = discord.Embed(
@@ -114,12 +121,12 @@ class TriviaScheduler:
             await asyncio.shield(channel.send(embed=embed))
         except asyncio.CancelledError:
             config.clear_pending()
-            self.bot.settings.update_trivia_pending()
+            self._clear_pending_detached(channel_id)
             raise
         except Exception as e:
             _log(f"channel {channel_id}: failed to send pending reveal: {e!r}")
         config.clear_pending()
-        self.bot.settings.update_trivia_pending()
+        await trivia_repo.delete_pending(channel_id)
 
     async def _fire(self, channel_id: int, config: TriviaChannelConfig) -> None:
         channel = self.bot.get_channel(channel_id)
@@ -139,7 +146,7 @@ class TriviaScheduler:
 
         question = self._pick_question(config, questions)
         if config.order == ORDER_SEQUENTIAL:
-            self.bot.settings.update_guilds()
+            await trivia_repo.set_channel_next_index(channel.guild.id, channel_id, config.next_index_value)
 
         if config.mode == MODE_TIMED:
             await self._fire_timed(channel, config, question)
@@ -173,8 +180,10 @@ class TriviaScheduler:
         await channel.send(embed=embed)
 
         due_at = datetime.now(timezone.utc).timestamp() + config.response
-        config.set_pending(due_at, question)
-        self.bot.settings.update_trivia_pending()
+        config.set_pending(due_at, question, wording)
+        await trivia_repo.upsert_pending(
+            channel.id, due_at, question.title, wording, question.answer, question.answer_context
+        )
 
         # Schedule the answer reveal as its own one-shot task — when it finishes,
         # the question loop is already waiting for the next cron tick.
@@ -183,13 +192,13 @@ class TriviaScheduler:
             prev.cancel()
 
         task = self.bot.loop.create_task(
-            self._reveal_answer(channel, config, question),
+            self._reveal_answer(channel, config, question, wording),
             name=f"trivia-answer-{channel.id}",
         )
         self._answer_tasks[channel.id] = task
 
     async def _reveal_answer(
-            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion,
+            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion, wording: str,
     ) -> None:
         try:
             await asyncio.sleep(config.response)
@@ -198,7 +207,10 @@ class TriviaScheduler:
             self._answer_tasks.pop(channel.id, None)
             raise
 
-        description = f"**{question.answer}**"
+        description = ""
+        if wording:
+            description += f"> {wording}\n\n"
+        description += f"**{question.answer}**"
         if question.answer_context:
             description += f"\n\n{question.answer_context}"
         embed = discord.Embed(
@@ -212,12 +224,12 @@ class TriviaScheduler:
             await asyncio.shield(channel.send(embed=embed))
         except asyncio.CancelledError:
             config.clear_pending()
-            self.bot.settings.update_trivia_pending()
+            self._clear_pending_detached(channel.id)
             self._answer_tasks.pop(channel.id, None)
             raise
         except Exception as e:
             _log(f"channel {channel.id}: failed to send answer: {e!r}")
 
         config.clear_pending()
-        self.bot.settings.update_trivia_pending()
+        await trivia_repo.delete_pending(channel.id)
         self._answer_tasks.pop(channel.id, None)

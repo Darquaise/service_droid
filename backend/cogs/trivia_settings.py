@@ -107,9 +107,8 @@ class TriviaSettingsCog(commands.Cog):
             name: discord.Option(str, "Name of the new list"),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
-        if not handler.add_list(name):
+        if not await handler.add_list(name):
             return await ctx.respond(f"List **{name}** already exists.", ephemeral=True)
-        self.bot.settings.update_trivia(ctx.guild.id)
         return await ctx.respond(f"List **{name}** has been created.", ephemeral=True)
 
     @discord.slash_command(description="Remove a trivia list.")
@@ -132,8 +131,7 @@ class TriviaSettingsCog(commands.Cog):
                     view=None,
                 )
 
-            handler.remove_list(list_name)
-            self.bot.settings.update_trivia(ctx.guild.id)
+            await handler.remove_list(list_name)
             await interaction.response.edit_message(
                 content=f"List **{list_name}** has been deleted.", view=None
             )
@@ -168,8 +166,7 @@ class TriviaSettingsCog(commands.Cog):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
         async def on_select(interaction: discord.Interaction, list_name: str):
-            new_q = handler.add_question(list_name, title, [question], answer, answer_context)
-            self.bot.settings.update_trivia(ctx.guild.id)
+            new_q = await handler.add_question(list_name, title, [question], answer, answer_context)
             await interaction.response.edit_message(
                 content=f"Question `{new_q.id}` added to list **{list_name}**.",
                 view=None,
@@ -189,13 +186,12 @@ class TriviaSettingsCog(commands.Cog):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
         async def on_select(interaction: discord.Interaction, list_name: str):
-            q = handler.add_variation(list_name, trivia_id, wording)
+            q = await handler.add_variation(list_name, trivia_id, wording)
             if q is None:
                 return await interaction.response.edit_message(
                     content=f"There is no question with ID `{trivia_id}` in **{list_name}**.",
                     view=None,
                 )
-            self.bot.settings.update_trivia(ctx.guild.id)
             await interaction.response.edit_message(
                 content=(
                     f"Added a new wording to question `{trivia_id}` in **{list_name}** "
@@ -215,12 +211,11 @@ class TriviaSettingsCog(commands.Cog):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
         async def on_select(interaction: discord.Interaction, list_name: str):
-            if not handler.remove_question(list_name, trivia_id):
+            if not await handler.remove_question(list_name, trivia_id):
                 return await interaction.response.edit_message(
                     content=f"There is no question with ID `{trivia_id}` in **{list_name}**.",
                     view=None,
                 )
-            self.bot.settings.update_trivia(ctx.guild.id)
             await interaction.response.edit_message(
                 content=f"Question `{trivia_id}` removed from list **{list_name}**.",
                 view=None,
@@ -228,10 +223,7 @@ class TriviaSettingsCog(commands.Cog):
 
         await _prompt_list_select(ctx, on_select, "Which list should the question be removed from?")
 
-    # ---------------------------------------------------------------------
-    # Channel mapping (guilds.json)
-    # ---------------------------------------------------------------------
-
+    # Channel mapping
     @discord.slash_command(
         description="Bind a channel to a trivia list with its own cron schedule and response time."
     )
@@ -275,8 +267,7 @@ class TriviaSettingsCog(commands.Cog):
                 mode=mode,
                 order=order,
             )
-            guild.trivia_channels[channel.id] = config
-            self.bot.settings.update_guilds()
+            await guild.set_trivia_channel(config)
             _refresh_scheduler(self.bot, channel.id, config)
             await interaction.response.edit_message(
                 content=(
@@ -314,10 +305,8 @@ class TriviaSettingsCog(commands.Cog):
             return await ctx.respond(
                 f"{channel.mention} is not a trivia channel.", ephemeral=True
             )
-        del guild.trivia_channels[channel.id]
-        self.bot.settings.update_guilds()
+        await guild.remove_trivia_channel(channel.id)
         _refresh_scheduler(self.bot, channel.id, None)
-        self.bot.settings.update_trivia_pending()
         return await ctx.respond(
             f"Trivia mapping for {channel.mention} removed.", ephemeral=True
         )
@@ -363,7 +352,7 @@ class TriviaSettingsCog(commands.Cog):
             )
         config = guild.trivia_channels[channel.id]
         config.schedule = schedule
-        self.bot.settings.update_guilds()
+        await guild.update_trivia_channel(config)
         _refresh_scheduler(self.bot, channel.id, config)
         return await ctx.respond(
             f"Schedule for {channel.mention} is now `{schedule}`.", ephemeral=True
@@ -385,7 +374,7 @@ class TriviaSettingsCog(commands.Cog):
             return await ctx.respond("Response time must be greater than 0 seconds.", ephemeral=True)
         config = guild.trivia_channels[channel.id]
         config.response = response
-        self.bot.settings.update_guilds()
+        await guild.update_trivia_channel(config)
         _refresh_scheduler(self.bot, channel.id, config)
         return await ctx.respond(
             f"Response time for {channel.mention} is now {response}s.", ephemeral=True

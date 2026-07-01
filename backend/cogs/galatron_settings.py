@@ -1,7 +1,6 @@
 import discord
 
 from classes import ServiceDroid, ApplicationContext, build_command_listing_embed
-from classes.galatron import GalatronHistory
 from cogs.galatron_commands import TextGenerator
 from converters.time import td2text_long, TIME_UNITS, transform_time
 
@@ -46,8 +45,7 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-        ctx.g.galatron_channels.append(channel)
-        self.bot.settings.update_guilds()
+        await ctx.g.add_galatron_channel(channel)
 
         return await ctx.respond(
             f"{channel.mention} is now viable for the Galatron hunt!.",
@@ -61,8 +59,7 @@ class GalatronSettingsCog(discord.Cog):
             channel: discord.Option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
     ):
         if channel in ctx.g.galatron_channels:
-            ctx.g.galatron_channels.remove(channel)
-            self.bot.settings.update_guilds()
+            await ctx.g.remove_galatron_channel(channel)
 
         return await ctx.respond(
             f"{channel.mention} is not being used for the Galatron hunt!",
@@ -77,8 +74,7 @@ class GalatronSettingsCog(discord.Cog):
     ):
         if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
-        ctx.g.galatron_role = role
-        self.bot.settings.update_guilds()
+        await ctx.g.set_galatron_role(role)
         return await ctx.respond(f"{role.mention} is now being used for the Galatron hunt!")
 
     @discord.slash_command(description="Set the per-member cooldown between Galatron attempts.")
@@ -99,8 +95,7 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
         else:
-            ctx.g.galatron_cooldown = duration
-            self.bot.settings.update_guilds()
+            await ctx.g.set_galatron_cooldown(duration)
 
             return await ctx.respond(
                 f"The cooldown for the Galatron has been set to {time_amount} {time_unit}.",
@@ -124,8 +119,7 @@ class GalatronSettingsCog(discord.Cog):
         if new_chance == ctx.g.galatron_chance:
             return await ctx.respond(f"{chance}% chance is already being used for the Galatron hunt!")
 
-        ctx.g.galatron_chance = new_chance
-        self.bot.settings.update_guilds()
+        await ctx.g.set_galatron_chance(new_chance)
 
         return await ctx.respond(f"{chance}% chance is now being used for the Galatron hunt!")
 
@@ -181,12 +175,8 @@ class GalatronSettingsCog(discord.Cog):
             except discord.HTTPException:
                 pass
 
-        if member.id not in ctx.g.galatron_total_times_used:
-            ctx.g.galatron_total_times_used[member.id] = 0
-        ctx.g.galatron_total_times_used[member.id] += 1
-
-        ctx.g.galatron_history.add_entry(member)
-        self.bot.settings.update_guilds()
+        await ctx.g.galatron_increment_total(member)
+        await ctx.g.galatron_add_win(member)
 
         embed = discord.Embed(
             title=TextGenerator.title_decree(),
@@ -217,10 +207,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.slash_command(description="Wipe all Galatron history, last-used and total-uses data.")
     @discord.default_permissions(administrator=True)
     async def galatron_reset(self, ctx: ApplicationContext):
-        ctx.g.galatron_history = GalatronHistory(ctx.guild, [])
-        ctx.g.galatron_last_used = {}
-        ctx.g.galatron_total_times_used = {}
-        self.bot.settings.update_guilds()
+        await ctx.g.galatron_reset()
         return await ctx.respond("Galatron reset complete!")
 
     @discord.slash_command(description="List Galatron-Setting commands.")
