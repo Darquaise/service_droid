@@ -9,8 +9,6 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
-_TRUTHY = ("1", "true", "yes", "on")
-
 
 def _data_dir() -> str:
     return os.environ.get("DATA_DIR", ".")
@@ -22,11 +20,7 @@ def log_file_path() -> str:
 
 
 def setup_logging() -> None:
-    level = (
-        logging.DEBUG
-        if os.environ.get("DEBUG", "").strip().lower() in _TRUTHY
-        else logging.INFO
-    )
+    level = logging.DEBUG if os.environ.get("DEBUG", "").strip().lower() == "true" else logging.INFO
     fmt = logging.Formatter(
         "%(asctime)s %(levelname)-8s %(name)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -44,5 +38,4 @@ def setup_logging() -> None:
     root.setLevel(level)
     root.handlers[:] = [stream, file]
 
-    # Tame py-cord/discord internals (their gateway chatter is noisy at DEBUG).
-    logging.getLogger("discord").setLevel(logging.INFO)
+    logging.getLogger("discord").setLevel(logging.DEBUG if os.environ.get("DISCORD_DEBUG", "").strip().lower() == "true" else logging.INFO)
