@@ -1,13 +1,36 @@
+import logging
 import discord
 from discord.ext import commands
 import random
 
-from classes import ServiceDroid, Guild
+from store import guild_repo
+from classes import ServiceDroid, Guild, TriviaHandler, reload_guild
+
+logger = logging.getLogger(__name__)
 
 
 class EventsCog(commands.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        try:
+            await guild_repo.ensure_guilds([(guild.id, guild.name)])
+            await reload_guild(self.bot, guild.id)
+            logger.info("joined guild %s (%s); registered in DB and memory", guild.name, guild.id)
+        except Exception:
+            logger.exception("failed to register newly joined guild %s", guild.id)
+
+    @commands.Cog.listener()
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        g = Guild.get(guild.id)
+        if g is not None and self.bot.trivia_scheduler is not None:
+            for channel_id in list(g.trivia_channels):
+                self.bot.trivia_scheduler.cancel_channel(channel_id)
+        Guild.delete(guild.id)
+        TriviaHandler.remove(guild.id)
+        logger.info("left guild %s (%s)", guild.name, guild.id)
 
     @staticmethod
     def _text_title() -> str:
@@ -56,5 +79,8 @@ class EventsCog(commands.Cog):
         )
 
         for channel in guild.galatron_channels:
-            await channel.send(embed=embed)
+            try:
+                await channel.send(embed=embed)
+            except discord.HTTPException:
+                logger.warning("could not announce Galatron loss in #%s (%s)", channel.name, channel.id)
 

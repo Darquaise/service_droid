@@ -54,7 +54,7 @@ class TextGenerator:
     @staticmethod
     def cooldown(next_allowed_ts: int) -> str:
         templates = [
-            "The cosmic energies remain still for another <t:{ts}:R>. You have already challenged the Galatron recently."
+            "The cosmic energies remain still. You have already challenged the Galatron recently, try again <t:{ts}:R>.",
             "You may attempt another contact <t:{ts}:R>.",
             "Reality refuses to twist for you again so soon. The next alignment window opens <t:{ts}:R>.",
             "The Galatron ignores repeated calls. Try again when the timelines realign <t:{ts}:R>.",

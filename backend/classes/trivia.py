@@ -97,6 +97,10 @@ class TriviaHandler:
         return cls._instances.get(guild_id)
 
     @classmethod
+    def remove(cls, guild_id: int) -> None:
+        cls._instances.pop(guild_id, None)
+
+    @classmethod
     def get_or_create(cls, guild: discord.Guild) -> "TriviaHandler":
         existing = cls._instances.get(guild.id)
         if existing is not None:

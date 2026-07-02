@@ -61,10 +61,12 @@ class Guild(GuildBase):
         results = []
         for role in member.roles:
             result = self.get_role_cooldown(role)
-            if result:
+            if isinstance(result, LFGNotAllowed):
+                return result
+            if result is not None:
                 results.append(result)
-        if len(results) > 0:
-            return min(results) if min(results) != 0 else LFGNotAllowed()
+        if results:
+            return min(results)
         return LFGNotAllowed()
 
     def add_lfg_channel(self, channel: discord.TextChannel, roles: list[discord.Role]) -> None:

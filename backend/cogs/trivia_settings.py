@@ -167,6 +167,10 @@ class TriviaSettingsCog(commands.Cog):
 
         async def on_select(interaction: discord.Interaction, list_name: str):
             new_q = await handler.add_question(list_name, title, [question], answer, answer_context)
+            if new_q is None:
+                return await interaction.response.edit_message(
+                    content=f"List **{list_name}** no longer exists.", view=None,
+                )
             await interaction.response.edit_message(
                 content=f"Question `{new_q.id}` added to list **{list_name}**.",
                 view=None,

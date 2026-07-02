@@ -4,13 +4,6 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in ("1", "true", "yes", "on")
-
-
 def env_int_list(name: str) -> list[int]:
     raw = os.environ.get(name, "")
     return [int(x) for x in raw.split(",") if x.strip()]
@@ -24,7 +17,7 @@ class Settings:
     def __init__(self):
         logger.info("loading settings...")
 
-        self.debug = _env_bool("DEBUG", False)
+        self.debug = os.environ.get("DEBUG", "").strip().lower() == "true"
         self.command_prefix = os.environ.get("COMMAND_PREFIX", "!")
         self.owner_ids = env_int_list("OWNER_IDS")
         self.debug_guild_ids = env_int_list("DEBUG_GUILD_IDS")

@@ -28,8 +28,8 @@ class GuildBase:
         return cls(g, data)
 
     @classmethod
-    async def delete(cls, guild_id):
-        del cls._instances[guild_id]
+    def delete(cls, guild_id: int) -> None:
+        cls._instances.pop(guild_id, None)
 
     # redirects to original guild object
     @property

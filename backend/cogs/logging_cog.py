@@ -1,5 +1,6 @@
 import logging
 
+import discord
 from discord.ext import commands
 
 from classes import ServiceDroid
@@ -34,6 +35,15 @@ class LoggingCog(commands.Cog):
             getattr(ctx.command, "qualified_name", "?"), ctx.user, error,
             exc_info=error,
         )
+
+        message = "Something went wrong while running this command."
+        try:
+            if ctx.interaction.response.is_done():
+                await ctx.followup.send(message, ephemeral=True)
+            else:
+                await ctx.respond(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
     @commands.Cog.listener()
     async def on_command_completion(self, ctx):

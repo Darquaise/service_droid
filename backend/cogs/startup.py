@@ -26,6 +26,14 @@ class StartupCog(commands.Cog):
         bot.loop.create_task(self.startup())
 
     async def startup(self):
+        try:
+            await self._startup()
+        except Exception:
+            logger.exception("startup failed; shutting down")
+            self.bot.exit_code = 1
+            await self.bot.close()
+
+    async def _startup(self):
         # start
         logger.info("starting up...")
         await self.bot.wait_until_ready()

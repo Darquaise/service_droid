@@ -77,8 +77,6 @@ async def import_guild(gid: int, g: dict) -> None:
                 last_used=float(lu) if lu is not None else None,
             )
 
-    tr = g.get("trivia", {})
-
     for role in g.get("roles", []):
         await lfg_repo.upsert_host_role(
             gid, int(role["id"]), int(role["cooldown"]), role["cooldown_type"]
@@ -88,7 +86,11 @@ async def import_guild(gid: int, g: dict) -> None:
             gid, int(ch["id"]), [int(r) for r in ch.get("roles", [])]
         )
 
-    for cid_str, cfg in tr.get("channels", {}).items():
+
+async def import_trivia_channels(gid: int, g: dict) -> None:
+    """Channel->list mappings; run *after* import_trivia so the FK on
+    trivia_channel(guild_id, list_name) is satisfied."""
+    for cid_str, cfg in g.get("trivia", {}).get("channels", {}).items():
         config = TriviaChannelConfig(
             int(cid_str),
             cfg["list"],
@@ -98,7 +100,13 @@ async def import_guild(gid: int, g: dict) -> None:
             cfg.get("order", ORDER_RANDOM),
             next_index=int(cfg.get("next_index", 0)),
         )
-        await trivia_repo.upsert_channel(gid, config)
+        try:
+            await trivia_repo.upsert_channel(gid, config)
+        except Exception as e:
+            logger.warning(
+                "skipping trivia channel %s of guild %s (list %r): %s",
+                cid_str, gid, cfg["list"], e,
+            )
 
 
 async def import_trivia(gid: int, data: dict) -> None:
@@ -134,15 +142,13 @@ async def import_pending(data: dict) -> None:
 async def main() -> None:
     init_engine(os.environ["DATABASE_URL"])
     try:
-        guild_ids: set[int] = set()
+        guilds: dict[str, dict] = {}
         if os.path.isfile(GUILDS_PATH):
             with open(GUILDS_PATH) as f:
                 guilds = json.load(f)
             for gid_str, g in guilds.items():
-                gid = int(gid_str)
-                guild_ids.add(gid)
-                await import_guild(gid, g)
-                logger.info("imported guild %s (%s)", gid, g.get("name"))
+                await import_guild(int(gid_str), g)
+                logger.info("imported guild %s (%s)", gid_str, g.get("name"))
         else:
             logger.warning("no guilds.json at %s", GUILDS_PATH)
 
@@ -156,6 +162,10 @@ async def main() -> None:
             elif stem.isdigit():
                 await import_trivia(int(stem), data)
                 logger.info("imported trivia for guild %s (%d list(s))", stem, len(data))
+
+        # Last: channel->list mappings need the lists to exist (deferred FK).
+        for gid_str, g in guilds.items():
+            await import_trivia_channels(int(gid_str), g)
     finally:
         await dispose_engine()
 

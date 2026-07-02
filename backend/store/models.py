@@ -172,7 +172,15 @@ class TriviaChannelRow(Base):
     question_order: Mapped[str] = mapped_column(Text, nullable=False)  # how the next question is picked (random/sequential); 'order' is reserved in SQL
     next_index: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
 
-    __table_args__ = (PrimaryKeyConstraint("guild_id", "channel_id"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("guild_id", "channel_id"),
+        ForeignKeyConstraint(
+            ["guild_id", "list_name"],
+            ["trivia_list.guild_id", "trivia_list.name"],
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+    )
 
 
 class TriviaPendingRow(Base):

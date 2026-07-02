@@ -1,6 +1,4 @@
-import asyncio
 import logging
-from pathlib import Path
 
 import discord
 from discord.ext import commands
@@ -10,7 +8,6 @@ from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
 from classes.settings import env_int_list
 from logging_setup import log_file_path
 
-REPO_PATH = str(Path(__file__).resolve().parent.parent)
 LOG_PATH = log_file_path()
 DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS")
 
@@ -163,29 +160,6 @@ class DevelopmentCog(commands.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
         logger.debug("dev cog loaded")
-
-    @discord.slash_command(debug_guilds=DEBUG_GUILD_IDS)
-    @discord.default_permissions(administrator=True)
-    async def update_git(self, ctx: discord.ApplicationContext):
-        await ctx.defer(ephemeral=True)
-
-        proc = await asyncio.create_subprocess_shell(
-            "git pull",
-            cwd=REPO_PATH,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-        code = proc.returncode
-
-        if code == 0:
-            msg = stdout.decode().strip() or "No output"
-            text = f"git pull successful:\n```{msg}```"
-        else:
-            out = (stdout.decode() + "\n" + stderr.decode()).strip()
-            text = f"git pull failed (code {code}):\n```{out[:1800]}```"
-
-        await ctx.followup.send(text, ephemeral=True)
 
     @commands.slash_command(description="Shuts down the Bot", debug_guilds=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)

@@ -87,6 +87,12 @@ class GalatronSettingsCog(discord.Cog):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
 
+        if time_amount <= 0:
+            return await ctx.respond(
+                "The cooldown must be greater than 0.",
+                ephemeral=True
+            )
+
         duration = transform_time(time_amount, time_unit)
 
         if duration == ctx.g.galatron_cooldown:

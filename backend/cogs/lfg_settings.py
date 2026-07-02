@@ -58,12 +58,6 @@ class LFGSettingsCog(discord.Cog):
             old_time = None
         new_time = transform_time_lfg(time_amount, time_unit)
 
-        if not new_time:
-            return await ctx.respond(
-                "This is not a valid time unit, the following are available: `days`, `hours`, `minutes`, `seconds`!",
-                ephemeral=True
-            )
-
         if new_time == old_time:
             return await ctx.respond(
                 f"The cooldown has been set to {time_amount} {time_unit}. Nothing changed.",
