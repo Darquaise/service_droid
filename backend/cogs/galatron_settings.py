@@ -1,8 +1,9 @@
+from datetime import timedelta
 import discord
 
-from classes import ServiceDroid, ApplicationContext, build_command_listing_embed
+from classes import ServiceDroid, ApplicationContext, build_command_listing_embed, option
 from cogs.galatron_commands import TextGenerator
-from converters.time import td2text_long, TIME_UNITS, transform_time
+from converters.time import td2text_long, TIME_UNITS
 
 
 def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
@@ -37,7 +38,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_add_galatron_channel(
             self, ctx: ApplicationContext,
-            channel: discord.Option(discord.TextChannel, "Channel to enable the Galatron hunt in"),
+            channel: discord.TextChannel = option(discord.TextChannel, "Channel to enable the Galatron hunt in"),
     ):
         if channel in ctx.g.galatron_channels:
             return await ctx.respond(
@@ -56,7 +57,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_remove_galatron_channel(
             self, ctx: ApplicationContext,
-            channel: discord.Option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
+            channel: discord.TextChannel = option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
     ):
         if channel in ctx.g.galatron_channels:
             await ctx.g.remove_galatron_channel(channel)
@@ -70,7 +71,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_role(
             self, ctx: ApplicationContext,
-            role: discord.Option(discord.Role, "Role assigned to whoever currently holds the Galatron"),
+            role: discord.Role = option(discord.Role, "Role assigned to whoever currently holds the Galatron"),
     ):
         if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
@@ -81,8 +82,8 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_cooldown(
             self, ctx: ApplicationContext,
-            time_unit: discord.Option(str, "Of what kind the given time will be", choices=TIME_UNITS),
-            time_amount: discord.Option(int, "The amount of time")
+            time_unit: str = option(str, "Of what kind the given time will be", choices=TIME_UNITS),
+            time_amount: int = option(int, "The amount of time")
     ):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
@@ -93,7 +94,8 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-        duration = transform_time(time_amount, time_unit)
+        # time_unit is restricted by choices=TIME_UNITS, all of which are valid timedelta kwargs
+        duration = timedelta(**{time_unit: time_amount})
 
         if duration == ctx.g.galatron_cooldown:
             return await ctx.respond(
@@ -112,7 +114,7 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_chance(
             self, ctx: ApplicationContext,
-            chance: discord.Option(float, "Success chance in percent (0-100)"),
+            chance: float = option(float, "Success chance in percent (0-100)"),
     ):
         if not 0 <= chance <= 100:
             return await ctx.respond(
@@ -140,7 +142,7 @@ class GalatronSettingsCog(discord.Cog):
     async def setting_set_galatron_owner(
             self,
             ctx: ApplicationContext,
-            member: discord.Option(discord.Member, "The new bearer of the Galatron"),
+            member: discord.Member = option(discord.Member, "The new bearer of the Galatron"),
     ):
         if not ctx.galatron.role:
             return await ctx.respond(

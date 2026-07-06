@@ -13,6 +13,7 @@ class EventsCog(commands.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
+    # noinspection PyBroadException
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:
         try:
@@ -67,7 +68,7 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
         guild = Guild.get(member.guild.id)
-        if guild.galatron_role is None:
+        if guild is None or guild.galatron_role is None:
             return
         if guild.galatron_role not in member.roles:
             return

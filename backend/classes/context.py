@@ -31,7 +31,9 @@ class Context(commands.Context):
     @property
     def g(self) -> Guild:
         assert self.message.guild is not None
-        return Guild.get(self.message.guild.id)
+        g = Guild.get(self.message.guild.id)
+        assert g is not None
+        return g
 
     @property
     def own_perms(self) -> discord.Permissions:
@@ -52,7 +54,9 @@ class ApplicationContext(discord.ApplicationContext):
 
     @property
     def g(self) -> Guild:
-        return Guild.get(self.guild.id)
+        g = Guild.get(self.guild.id)
+        assert g is not None
+        return g
 
     @property
     def own_perms(self) -> discord.Permissions:

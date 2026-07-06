@@ -244,7 +244,8 @@ class GalatronCog(commands.Cog):
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
-    async def get_galatron(self, ctx: ApplicationContext):
+    @staticmethod
+    async def get_galatron(ctx: ApplicationContext):
         if not ctx.galatron.role:
             return await ctx.respond("This feature hasn't been set up by your admins yet.")
 
@@ -395,6 +396,7 @@ class GalatronCog(commands.Cog):
                 allowed_mentions=discord.AllowedMentions.none(),
             )
             view.message = await ctx.interaction.original_response()
+        return None
 
     @discord.slash_command()
     async def galatron_stats(self, ctx: ApplicationContext):

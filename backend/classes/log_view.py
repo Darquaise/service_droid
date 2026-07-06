@@ -195,9 +195,10 @@ class LogView(View):
         ],
     )
     async def lines_select(self, sel: discord.ui.Select, interaction: Interaction):
-        if not self._check_user(interaction):
+        values = sel.values
+        if not self._check_user(interaction) or not values:
             return await interaction.response.defer()
-        new_lpp = int(sel.values[0])
+        new_lpp = int(values[0])
         was_at_end = self.start_line >= self._max_start()
         self.lines_per_page = new_lpp
         if was_at_end:

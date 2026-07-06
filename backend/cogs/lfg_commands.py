@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 
-from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed
+from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,10 @@ class LFGCog(discord.Cog):
         self.cooldowns: dict[int, dict[int, datetime]] = {}
 
     def next_lfg_use(self, member: discord.Member) -> datetime | LFGNotAllowed:
-        cooldown = Guild.get(member.guild.id).get_member_cooldown(member)
+        guild = Guild.get(member.guild.id)
+        if guild is None:
+            return LFGNotAllowed()
+        cooldown = guild.get_member_cooldown(member)
 
         if isinstance(cooldown, LFGNotAllowed):
             return cooldown
@@ -72,7 +75,7 @@ class LFGCog(discord.Cog):
     @discord.slash_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(
             self, ctx: ApplicationContext,
-            text: discord.Option(str, "Optional extra message to append to the LFG ping", default=None) = None,
+            text: str = option(str, "Optional extra message to append to the LFG ping", default=None),
     ):
         assert isinstance(ctx.author, discord.Member)
 
@@ -122,10 +125,9 @@ class LFGCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def reset_cooldown(
             self, ctx: ApplicationContext,
-            member: discord.Option(
-                discord.Member, "Member whose cooldown should be reset; leave empty to reset all",
-                default=None,
-            ) = None,
+            member: discord.Member = option(
+                discord.Member, "Member whose cooldown should be reset; leave empty to reset all", default=None
+            ),
     ):
         if member:
             guild_cooldowns = self.cooldowns.get(member.guild.id)

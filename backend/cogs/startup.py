@@ -25,6 +25,7 @@ class StartupCog(commands.Cog):
         self.bot = bot
         bot.loop.create_task(self.startup())
 
+    # noinspection PyBroadException
     async def startup(self):
         try:
             await self._startup()

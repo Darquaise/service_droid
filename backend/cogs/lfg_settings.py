@@ -2,8 +2,7 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed,
-    build_command_listing_embed,
+    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed, build_command_listing_embed, option
 )
 from converters import TIME_UNITS
 
@@ -45,9 +44,9 @@ class LFGSettingsCog(discord.Cog):
     async def setting_set_host(
             self,
             ctx: ApplicationContext,
-            role: discord.Option(discord.Role, "Host role the cooldown applies to"),
-            time_unit: discord.Option(str, "Of what kind the given time will be", choices=TIME_UNITS),
-            time_amount: discord.Option(int, "The amount of time"),
+            role: discord.Role = option(discord.Role, "Host role the cooldown applies to"),
+            time_unit: str = option(str, "Of what kind the given time will be", choices=TIME_UNITS),
+            time_amount: int = option(int, "The amount of time"),
     ):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
@@ -80,7 +79,7 @@ class LFGSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_remove_host(
             self, ctx: ApplicationContext,
-            role: discord.Option(discord.Role, "Host role to remove"),
+            role: discord.Role = option(discord.Role, "Host role to remove"),
     ):
         if role.id not in ctx.g.host_roles.keys():
             return await ctx.respond(
@@ -102,8 +101,8 @@ class LFGSettingsCog(discord.Cog):
     async def setting_add_lfg(
             self,
             ctx: ApplicationContext,
-            channel: discord.Option(discord.TextChannel, "Channel that should accept /lfg"),
-            role: discord.Option(discord.Role, "Role to be mentioned by /lfg in this channel"),
+            channel: discord.TextChannel = option(discord.TextChannel, "Channel that should accept /lfg"),
+            role: discord.Role = option(discord.Role, "Role to be mentioned by /lfg in this channel"),
     ):
         was_present = channel.id in ctx.g.lfg_channels
         added = await ctx.g.add_lfg_role(channel, role)
@@ -130,7 +129,7 @@ class LFGSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def setting_remove_lfg(
             self, ctx: ApplicationContext,
-            channel: discord.Option(discord.TextChannel, "LFG channel to remove"),
+            channel: discord.TextChannel = option(discord.TextChannel, "LFG channel to remove"),
     ):
         if channel.id in ctx.g.lfg_channels:
             await ctx.g.remove_lfg_channel(channel.id)

@@ -11,4 +11,5 @@ from .trivia_views import TriviaQuestionPaginatorView
 from .trivia_scheduler import TriviaScheduler
 from .reload import reload_guild
 from .command_listing import build_command_listing_embed
+from .options import option
 from . import trivia_modes

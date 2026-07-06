@@ -176,7 +176,7 @@ class Guild(GuildBase):
             if not isinstance(channel, discord.TextChannel):
                 logger.warning("channel %s not found or not a text channel", lc.channel_id)
                 continue
-            roles = [r for r in (guild.get_role(rid) for rid in lc.role_ids) if r]
+            roles = [role for rid in lc.role_ids if (role := guild.get_role(rid)) is not None]
             lfg_channels[lc.channel_id] = LFGChannel(channel, roles)
 
         # galatron stuff
@@ -192,11 +192,13 @@ class Guild(GuildBase):
         )
 
         cutoff = datetime.now() - galatron_cooldown
-        galatron_last_used = {
-            m.member_id: ts
-            for m in gs.galatron_members
-            if m.last_used is not None and (ts := datetime.fromtimestamp(m.last_used)) >= cutoff
-        }
+        galatron_last_used: dict[int, datetime] = {}
+        for m in gs.galatron_members:
+            if m.last_used is None:
+                continue
+            ts = datetime.fromtimestamp(m.last_used)
+            if ts >= cutoff:
+                galatron_last_used[m.member_id] = ts
         galatron_total_times_used = {m.member_id: m.total for m in gs.galatron_members}
 
         # trivia stuff

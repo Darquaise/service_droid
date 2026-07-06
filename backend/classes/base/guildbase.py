@@ -16,7 +16,7 @@ class GuildBase:
 
     # guild specific stuff
     @classmethod
-    def get(cls, guild_id: int) -> Guild:
+    def get(cls, guild_id: int) -> Guild | None:
         return cls._instances.get(guild_id)
 
     @classmethod
@@ -51,14 +51,6 @@ class GuildBase:
     @property
     def owner(self):
         return self.guild.owner
-
-    @property
-    def voice_client(self) -> discord.VoiceClient | None:
-        return self.guild.voice_client
-
-    @property
-    def vc(self) -> discord.VoiceClient | None:
-        return self.voice_client
 
     @property
     def self_role(self) -> discord.Role | None:

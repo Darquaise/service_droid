@@ -54,7 +54,7 @@ async def import_guild(gid: int, g: dict) -> None:
     # Wipe append-only Galatron data so a re-run does not duplicate it.
     await galatron_repo.clear_galatron(gid)
 
-    ga = g.get("galatron")
+    ga: dict = g.get("galatron") or {}
     if ga:
         await guild_repo.set_galatron_role(gid, ga.get("role"))
         await guild_repo.set_galatron_chance(gid, ga.get("chance", 0.005))
@@ -65,8 +65,8 @@ async def import_guild(gid: int, g: dict) -> None:
             await galatron_repo.append_history(
                 gid, int(entry["member_id"]), float(entry["timestamp"])
             )
-        last_used = ga.get("last_used", {})
-        totals = ga.get("total_times_used", {})
+        last_used: dict[str, float] = ga.get("last_used", {})
+        totals: dict[str, int] = ga.get("total_times_used", {})
         member_ids = {int(m) for m in last_used} | {int(m) for m in totals}
         for mid in member_ids:
             lu = last_used.get(str(mid))

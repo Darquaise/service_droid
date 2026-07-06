@@ -12,11 +12,13 @@ async def build_command_listing_embed(
             selected[c.name] = c
 
     id_by_name: dict[str, int] = {}
-    try:
-        registered = await bot.http.get_guild_commands(bot.user.id, guild.id)
-        id_by_name = {r["name"]: int(r["id"]) for r in registered}
-    except discord.HTTPException:
-        pass
+    bot_user = bot.user
+    if bot_user is not None:
+        try:
+            registered = await bot.http.get_guild_commands(bot_user.id, guild.id)
+            id_by_name = {r["name"]: int(r["id"]) for r in registered}
+        except discord.HTTPException:
+            pass
 
     if not selected:
         description = "No commands registered yet."

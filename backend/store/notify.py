@@ -69,6 +69,7 @@ class ChangeListener:
         finally:
             await aconn.close()
 
+    # noinspection PyBroadException
     async def _handle(self, payload: str) -> None:
         try:
             data = json.loads(payload)

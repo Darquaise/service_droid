@@ -3,13 +3,13 @@ import logging
 import discord
 from discord.ext import commands
 
-from classes import ServiceDroid, LogView, reload_guild
+from classes import ApplicationContext, ServiceDroid, LogView, option, reload_guild
 from classes.log_view import DEFAULT_LINES_PER_PAGE, LINES_PER_PAGE_OPTIONS
 from classes.settings import env_int_list
 from logging_setup import log_file_path
 
 LOG_PATH = log_file_path()
-DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS")
+DEBUG_GUILD_IDS = env_int_list("DEBUG_GUILD_IDS") or None
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +74,9 @@ def _build_guild_embed(guild: discord.Guild) -> discord.Embed:
         colour=discord.Colour.blurple(),
     )
     embed.set_footer(text=f"ID: {guild.id}")
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
+    icon = guild.icon
+    if icon:
+        embed.set_thumbnail(url=icon.url)
 
     bot_role_ids = {r.id for r in me.roles}
     # Skip @everyone; list top-first like Discord's sidebar.
@@ -161,35 +162,35 @@ class DevelopmentCog(commands.Cog):
         self.bot = bot
         logger.debug("dev cog loaded")
 
-    @commands.slash_command(description="Shuts down the Bot", debug_guilds=DEBUG_GUILD_IDS)
+    @commands.slash_command(description="Shuts down the Bot", guild_ids=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
-    async def shutdown(self, ctx: discord.ApplicationContext):
+    async def shutdown(self, ctx: ApplicationContext):
         await ctx.respond("Bot is shutting down", ephemeral=True)
         await shutdown(self.bot)
 
-    @commands.slash_command(description="Restarts the Bot", debug_guilds=DEBUG_GUILD_IDS)
+    @commands.slash_command(description="Restarts the Bot", guild_ids=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
-    async def restart(self, ctx: discord.ApplicationContext):
+    async def restart(self, ctx: ApplicationContext):
         await ctx.respond("Bot is restarting", ephemeral=True)
         await restart(self.bot)
 
-    @commands.slash_command(description="Check if Bot responds", debug_guilds=DEBUG_GUILD_IDS)
+    @commands.slash_command(description="Check if Bot responds", guild_ids=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
-    async def status(self, ctx: discord.ApplicationContext):
+    async def status(self, ctx: ApplicationContext):
         await ctx.respond("Bot is here!", ephemeral=True)
 
     @discord.slash_command(
         description="Reload a guild's data from the database (re-sync after external changes).",
-        debug_guilds=DEBUG_GUILD_IDS,
+        guild_ids=DEBUG_GUILD_IDS,
     )
     @discord.default_permissions(administrator=True)
     async def reload(
             self,
-            ctx: discord.ApplicationContext,
-            guild_id: discord.Option(
+            ctx: ApplicationContext,
+            guild_id: str = option(
                 str, "Server (defaults to this one)", autocomplete=_guild_autocomplete,
                 default=None,
-            ) = None,
+            ),
     ):
         await ctx.defer(ephemeral=True)
         gid = int(guild_id) if guild_id else ctx.guild.id
@@ -198,18 +199,18 @@ class DevelopmentCog(commands.Cog):
         else:
             await ctx.followup.send(f"Bot is not in guild `{gid}`.", ephemeral=True)
 
-    @discord.slash_command(description="Show the bot's terminal log", debug_guilds=DEBUG_GUILD_IDS)
+    @discord.slash_command(description="Show the bot's terminal log", guild_ids=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def log(
             self,
-            ctx: discord.ApplicationContext,
-            lines_per_page: discord.Option(
+            ctx: ApplicationContext,
+            lines_per_page: int = option(
                 int,
                 "Lines per page",
                 required=False,
                 default=DEFAULT_LINES_PER_PAGE,
                 choices=LINES_PER_PAGE_OPTIONS,
-            ) = DEFAULT_LINES_PER_PAGE,
+            ),
     ):
         await ctx.defer(ephemeral=True)
         view = LogView(ctx, LOG_PATH, lines_per_page=lines_per_page)
@@ -217,10 +218,10 @@ class DevelopmentCog(commands.Cog):
 
     @discord.slash_command(
         description="List all guilds with bot permissions and roles.",
-        debug_guilds=DEBUG_GUILD_IDS,
+        guild_ids=DEBUG_GUILD_IDS,
     )
     @discord.default_permissions(administrator=True)
-    async def list_guilds(self, ctx: discord.ApplicationContext):
+    async def list_guilds(self, ctx: ApplicationContext):
         await ctx.defer(ephemeral=True)
 
         guilds = sorted(self.bot.guilds, key=lambda g: g.name.lower())

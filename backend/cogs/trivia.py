@@ -14,6 +14,7 @@ class TriviaCog(commands.Cog):
         bot.trivia_scheduler = self.scheduler
         bot.loop.create_task(self._initial_schedule())
 
+    # noinspection PyBroadException
     async def _initial_schedule(self):
         try:
             await self.bot.wait_until_ready()
