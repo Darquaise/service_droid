@@ -105,6 +105,29 @@ Per-channel scheduled trivia using cron expressions. Each channel binds to a nam
 | `/setting_trivia_update_response {channel} {response}`                       | Change a channel's response time.                                                                                             |
 | `/commands_trivia`                                                           | List all trivia-related slash commands (clickable mentions).                                                                  |
 
+### Minecraft status
+
+Mirrors a Minecraft server's live status in a voice channel's name.
+The bot pings the server directly and renames the channel to one of:
+
+- `🟢 Online: {count}` — server reachable, `{count}` players online
+- `🟠 Restarting` — server was online but stopped responding recently
+- `🔴 Offline` — server not reachable
+
+Discord rate-limits channel renames to **2 per 10 minutes per channel**, so the
+name updates roughly every 5–6 minutes (and only when the status actually changed).
+A restart that finishes within ~11 minutes shows as `Restarting`; longer outages flip to `Offline`.
+The bot needs the **Manage Channels** permission on the voice channel.
+
+**Commands (Admin):**
+
+| Command                                              | Description                                                                                                  |
+|------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `/setting_minecraft_set_channel {channel} {address}` | Mirror a server's status in a voice channel's name. `address` is the server address (`host` or `host:port`). |
+| `/setting_minecraft_remove_channel {channel}`        | Stop updating a channel (the current name is kept).                                                          |
+| `/setting_minecraft_show_mappings`                   | Show all channel→server mappings.                                                                            |
+| `/commands_minecraft`                                | List all Minecraft-related slash commands (clickable mentions).                                              |
+
 ### Dev (owner only, visible only on `DEBUG_GUILD_IDS`)
 
 | Command                 | Description                                                  |

@@ -13,6 +13,7 @@ from cogs.lfg_commands import LFGCog
 from cogs.lfg_settings import LFGSettingsCog
 from cogs.dev import DevelopmentCog
 from cogs.logging_cog import LoggingCog
+from cogs.minecraft import MinecraftCog
 from cogs.trivia import TriviaCog
 from cogs.trivia_settings import TriviaSettingsCog
 
@@ -70,6 +71,7 @@ class StartupCog(commands.Cog):
         self.bot.add_cog(EventsCog(self.bot))
         self.bot.add_cog(TriviaCog(self.bot))
         self.bot.add_cog(TriviaSettingsCog(self.bot))
+        self.bot.add_cog(MinecraftCog(self.bot))
         logger.info("cogs loaded")
 
         # --> start the live DB-sync listener

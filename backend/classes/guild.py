@@ -4,11 +4,12 @@ from typing import TYPE_CHECKING
 import discord
 from datetime import timedelta, datetime
 
-from store import galatron_repo, guild_repo, lfg_repo, trivia_repo
+from store import galatron_repo, guild_repo, lfg_repo, minecraft_repo, trivia_repo
 
 from .base.guildbase import GuildBase
 from .galatron import GalatronHistory
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
+from .minecraft import MinecraftStatusConfig
 from .trivia import TriviaChannelConfig
 
 if TYPE_CHECKING:
@@ -22,7 +23,7 @@ class Guild(GuildBase):
         "host_roles", "lfg_channels",
         "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
         "galatron_history", "galatron_last_used", "galatron_total_times_used",
-        "trivia_channels",
+        "trivia_channels", "minecraft_channels",
     )
 
     def __init__(
@@ -30,7 +31,7 @@ class Guild(GuildBase):
             galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
             galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
             galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int],
-            trivia_channels: dict[int, TriviaChannelConfig]
+            trivia_channels: dict[int, TriviaChannelConfig], minecraft_channels: dict[int, MinecraftStatusConfig],
     ):
         super().__init__(guild)
 
@@ -49,6 +50,9 @@ class Guild(GuildBase):
 
         # trivia stuff
         self.trivia_channels = trivia_channels
+
+        # minecraft stuff
+        self.minecraft_channels = minecraft_channels
 
         self._instances[self.id] = self
 
@@ -155,12 +159,21 @@ class Guild(GuildBase):
         await trivia_repo.delete_channel(self.id, channel_id)
         await trivia_repo.delete_pending(channel_id)
 
+    # Minecraft
+    async def set_minecraft_channel(self, config: MinecraftStatusConfig) -> None:
+        self.minecraft_channels[config.channel_id] = config
+        await minecraft_repo.upsert_channel(self.id, config.channel_id, config.address)
+
+    async def remove_minecraft_channel(self, channel_id: int) -> None:
+        self.minecraft_channels.pop(channel_id, None)
+        await minecraft_repo.delete_channel(self.id, channel_id)
+
     @classmethod
     def from_state(cls, guild: discord.Guild, gs: "GuildState | None"):
         if gs is None:
             return cls(
                 guild, {}, {}, None, 0.005, timedelta(days=1), [],
-                GalatronHistory(guild, []), {}, {}, {},
+                GalatronHistory(guild, []), {}, {}, {}, {},
             )
 
         # lfg stuff
@@ -210,9 +223,15 @@ class Guild(GuildBase):
             for tc in gs.trivia_channels
         }
 
+        # minecraft stuff
+        minecraft_channels = {
+            mc.channel_id: MinecraftStatusConfig(mc.channel_id, mc.address)
+            for mc in gs.minecraft_channels
+        }
+
         return cls(
             guild, host_roles, lfg_channels,
             galatron_role, gs.galatron_chance, galatron_cooldown, galatron_channels,
             galatron_history, galatron_last_used, galatron_total_times_used,
-            trivia_channels,
+            trivia_channels, minecraft_channels,
         )

@@ -27,6 +27,7 @@ async def reload_guild(bot: "ServiceDroid", guild_id: int) -> bool:
 
     previous = Guild.get(guild_id)
     old_channels = set(previous.trivia_channels) if previous else set()
+    old_mc_channels = set(previous.minecraft_channels) if previous else set()
 
     Guild.from_state(discord_guild, gs)  # overwrites the registry entry
     TriviaHandler.replace_for_guild(discord_guild, trivia_lists)
@@ -44,6 +45,13 @@ async def reload_guild(bot: "ServiceDroid", guild_id: int) -> bool:
             if raw is not None:
                 config.pending = raw
             scheduler.schedule_channel(channel_id, config)
+
+    updater = bot.minecraft_updater
+    if updater is not None and current is not None:
+        for channel_id in old_mc_channels - set(current.minecraft_channels):
+            updater.cancel_channel(channel_id)
+        for channel_id, config in current.minecraft_channels.items():
+            updater.schedule_channel(channel_id, config)
 
     logger.info("reloaded guild %s from database", guild_id)
     return True

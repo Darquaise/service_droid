@@ -10,6 +10,7 @@ from .context import Context, ApplicationContext
 
 if TYPE_CHECKING:
     from store.notify import ChangeListener
+    from .minecraft import MinecraftStatusUpdater
     from .trivia_scheduler import TriviaScheduler
 
 
@@ -22,6 +23,8 @@ class ServiceDroid(commands.Bot):
         self.change_listener: "ChangeListener | None" = None
         # set by TriviaCog once the scheduler is up
         self.trivia_scheduler: "TriviaScheduler | None" = None
+        # set by MinecraftCog once the updater is up
+        self.minecraft_updater: "MinecraftStatusUpdater | None" = None
 
     async def close(self) -> None:
         if self.change_listener is not None:

@@ -15,6 +15,7 @@ from .models import (
     GalatronHistoryRow,
     GalatronMemberRow,
     GuildRow,
+    MinecraftStatusChannelRow,
     LfgChannelRoleRow,
     LfgChannelRow,
     LfgHostRoleRow,
@@ -30,6 +31,7 @@ from .state import (
     LfgChannelData,
     LoadedState,
     MemberStat,
+    MinecraftChannelData,
     QuestionData,
     TriviaChannelData,
 )
@@ -245,6 +247,29 @@ class GalatronRepo(_Repo):
             await emit_change(s, guild_id)
 
 
+class MinecraftRepo(_Repo):
+    async def upsert_channel(self, guild_id: int, channel_id: int, address: str) -> None:
+        async with self._session() as s, s.begin():
+            await s.execute(
+                pg_insert(MinecraftStatusChannelRow)
+                .values(guild_id=guild_id, channel_id=channel_id, address=address)
+                .on_conflict_do_update(
+                    index_elements=["guild_id", "channel_id"], set_={"address": address}
+                )
+            )
+            await emit_change(s, guild_id)
+
+    async def delete_channel(self, guild_id: int, channel_id: int) -> None:
+        async with self._session() as s, s.begin():
+            await s.execute(
+                delete(MinecraftStatusChannelRow).where(
+                    MinecraftStatusChannelRow.guild_id == guild_id,
+                    MinecraftStatusChannelRow.channel_id == channel_id,
+                )
+            )
+            await emit_change(s, guild_id)
+
+
 class TriviaRepo(_Repo):
     async def add_list(self, guild_id: int, name: str) -> None:
         async with self._session() as s, s.begin():
@@ -454,6 +479,7 @@ guild_repo = GuildRepo()
 lfg_repo = LfgRepo()
 galatron_repo = GalatronRepo()
 trivia_repo = TriviaRepo()
+minecraft_repo = MinecraftRepo()
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +497,7 @@ def _build_guild_state(
     ga_history,
     ga_members,
     tr_channels,
+    mc_channels,
 ) -> GuildState:
     roles_by_c: dict[int, list[int]] = defaultdict(list)
     for r in lfg_channel_roles:
@@ -504,6 +531,9 @@ def _build_guild_state(
             )
             for tc in tr_channels
         ],
+        minecraft_channels=[
+            MinecraftChannelData(mc.channel_id, mc.address) for mc in mc_channels
+        ],
     )
 
 
@@ -536,6 +566,7 @@ async def load_state() -> LoadedState:
         ).scalars().all()
         ga_members = (await s.execute(select(GalatronMemberRow))).scalars().all()
         tr_channels = (await s.execute(select(TriviaChannelRow))).scalars().all()
+        mc_channels = (await s.execute(select(MinecraftStatusChannelRow))).scalars().all()
         tr_lists = (await s.execute(select(TriviaListRow))).scalars().all()
         tr_questions = (
             await s.execute(
@@ -568,6 +599,9 @@ async def load_state() -> LoadedState:
     tr_chan_by_g: dict[int, list] = defaultdict(list)
     for tc in tr_channels:
         tr_chan_by_g[tc.guild_id].append(tc)
+    mc_chan_by_g: dict[int, list] = defaultdict(list)
+    for mc in mc_channels:
+        mc_chan_by_g[mc.guild_id].append(mc)
     tr_lists_by_g: dict[int, list] = defaultdict(list)
     for lst in tr_lists:
         tr_lists_by_g[lst.guild_id].append(lst)
@@ -585,6 +619,7 @@ async def load_state() -> LoadedState:
             ga_hist_by_g.get(g.guild_id, []),
             ga_mem_by_g.get(g.guild_id, []),
             tr_chan_by_g.get(g.guild_id, []),
+            mc_chan_by_g.get(g.guild_id, []),
         )
         for g in guild_rows
     }
@@ -637,6 +672,13 @@ async def load_guild_state(
         tr_channels = (
             await s.execute(select(TriviaChannelRow).where(TriviaChannelRow.guild_id == guild_id))
         ).scalars().all()
+        mc_channels = (
+            await s.execute(
+                select(MinecraftStatusChannelRow).where(
+                    MinecraftStatusChannelRow.guild_id == guild_id
+                )
+            )
+        ).scalars().all()
         tr_lists = (
             await s.execute(select(TriviaListRow).where(TriviaListRow.guild_id == guild_id))
         ).scalars().all()
@@ -650,6 +692,6 @@ async def load_guild_state(
 
     gs = _build_guild_state(
         g, host_roles, lfg_channels, lfg_channel_roles,
-        ga_channels, ga_history, ga_members, tr_channels,
+        ga_channels, ga_history, ga_members, tr_channels, mc_channels,
     )
     return gs, _build_lists(tr_lists, tr_questions)

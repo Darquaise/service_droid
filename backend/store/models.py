@@ -119,6 +119,20 @@ class GalatronMemberRow(Base):
     __table_args__ = (PrimaryKeyConstraint("guild_id", "member_id"),)
 
 
+class MinecraftStatusChannelRow(Base):
+    """voice channels mirroring a Minecraft server's status in their name"""
+
+    __tablename__ = "minecraft_status_channel"
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
+    )
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    address: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (PrimaryKeyConstraint("guild_id", "channel_id"),)
+
+
 class TriviaListRow(Base):
     """a list of trivia questions"""
 

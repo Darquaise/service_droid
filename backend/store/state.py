@@ -41,6 +41,12 @@ class TriviaChannelData:
 
 
 @dataclass(slots=True)
+class MinecraftChannelData:
+    channel_id: int
+    address: str
+
+
+@dataclass(slots=True)
 class QuestionData:
     local_id: int
     title: str
@@ -62,6 +68,7 @@ class GuildState:
     galatron_history: list[HistoryEntry] = field(default_factory=list)
     galatron_members: list[MemberStat] = field(default_factory=list)
     trivia_channels: list[TriviaChannelData] = field(default_factory=list)
+    minecraft_channels: list[MinecraftChannelData] = field(default_factory=list)
 
 
 @dataclass(slots=True)

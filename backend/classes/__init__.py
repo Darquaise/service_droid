@@ -9,6 +9,7 @@ from .log_view import LogView
 from .trivia import TriviaHandler, TriviaQuestion, TriviaChannelConfig
 from .trivia_views import TriviaQuestionPaginatorView
 from .trivia_scheduler import TriviaScheduler
+from .minecraft import MinecraftStatusConfig, MinecraftStatusUpdater, fetch_player_count
 from .reload import reload_guild
 from .command_listing import build_command_listing_embed
 from .options import option
