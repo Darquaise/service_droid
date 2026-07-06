@@ -43,16 +43,6 @@ docker compose -f compose.dev.yml up -d --wait
 echo "▶ Database migrations (alembic upgrade head)…"
 ( cd "$ROOT/backend" && env DATABASE_URL="$DEV_DB_URL" uv run alembic upgrade head )
 
-# 3) First seed: if the local DB is empty and a backend/guilds.json exists,
-#    import it once via the migration script (same repos as the bot).
-guild_count="$(docker compose -f compose.dev.yml exec -T db \
-  psql -U service_droid_app -d service_droid -tAc "SELECT count(*) FROM guild" 2>/dev/null \
-  | tr -d '[:space:]' || true)"
-if [ "${guild_count:-0}" = "0" ] && [ -f "$ROOT/backend/guilds.json" ]; then
-  echo "▶ Local DB is empty — importing backend/guilds.json + trivia/ …"
-  ( cd "$ROOT/backend" && env DATABASE_URL="$DEV_DB_URL" DATA_DIR=. uv run python scripts/migrate_json_to_pg.py )
-fi
-
 # Starts a background process with a PID file + log file (survives script exit).
 start_bg() {  # name workdir command...
   local name="$1" dir="$2"; shift 2
@@ -67,7 +57,7 @@ start_bg() {  # name workdir command...
   echo "  $name → PID $!  ·  Log: ${logfile#"$ROOT"/}"
 }
 
-# 4) Bot — DATABASE_URL forces the local DB.
+# 3) Bot — DATABASE_URL forces the local DB.
 echo "▶ Bot (py-cord)…"
 start_bg bot "$ROOT/backend" \
   env DATABASE_URL="$DEV_DB_URL" uv run python main.py

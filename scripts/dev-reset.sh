@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
 # Resets the local dev database: deletes ALL local DB data (the volume) and
-# brings the stack back up with a fresh schema (re-seeds from backend/guilds.json
-# if present).
+# brings the stack back up with a fresh, empty schema.
 #
 #   ./scripts/dev-reset.sh         # asks for confirmation first
 #   ./scripts/dev-reset.sh -y      # no prompt (e.g. for scripts)
@@ -29,7 +28,7 @@ fi
 echo "▶ Removing DB volume…"
 docker compose -f "$ROOT/compose.dev.yml" down -v >/dev/null 2>&1 || true
 
-# 3) Bring it back up fresh (creates the schema anew + seeds from backend/guilds.json).
+# 3) Bring it back up fresh (creates the schema anew).
 echo "▶ Starting with a fresh database…"
 echo
 exec "$DIR/dev-start.sh"
