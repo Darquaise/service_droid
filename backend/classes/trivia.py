@@ -26,8 +26,7 @@ class TriviaQuestion:
 
 class TriviaChannelConfig:
     __slots__ = (
-        "channel_id", "list_name", "schedule", "response", "mode", "order",
-        "_next_index", "pending",
+        "channel_id", "list_name", "schedule", "response", "mode", "order", "_next_index", "pending", "perm_fail_count"
     )
 
     def __init__(
@@ -43,6 +42,8 @@ class TriviaChannelConfig:
 
         self._next_index = next_index
         self.pending: dict | None = None
+        # runtime-only strike count for missing channel permissions (not persisted)
+        self.perm_fail_count = 0
 
     def set_pending(self, due_at: float, question: "TriviaQuestion", wording: str) -> None:
         self.pending = {

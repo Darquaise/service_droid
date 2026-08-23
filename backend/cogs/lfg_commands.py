@@ -1,9 +1,12 @@
+import asyncio
 import logging
 import discord
 from discord.ext import commands
 from datetime import datetime
 
-from classes import ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option
+from classes import (
+    ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option, missing_channel_perms, notify_owner
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,20 @@ class LFGCog(discord.Cog):
             return self.cooldowns[member.guild.id][member.id] + cooldown
         else:
             return datetime.now()
+
+    @staticmethod
+    async def reject_message(ctx: Context, linger: int = 5) -> None:
+        """Mark the message as refused, leave it visible briefly, then clean it up."""
+        try:
+            await ctx.message.add_reaction("❌")
+        except discord.HTTPException:
+            pass
+        await asyncio.sleep(linger)
+        if ctx.own_perms.manage_messages:
+            try:
+                await ctx.message.delete()
+            except discord.HTTPException:
+                pass
 
     def set_cooldown(self, member: discord.Member):
         if member.guild.id not in self.cooldowns:
@@ -57,6 +74,15 @@ class LFGCog(discord.Cog):
                 delete_after=10
             )
             await ctx.message.delete()
+            return
+
+        missing = missing_channel_perms(ctx.channel, "view_channel", "send_messages")
+        if missing:
+            await notify_owner(
+                ctx.guild,
+                f"I can't post LFG invites in {ctx.channel.mention} — missing {', '.join(missing)}.",
+            )
+            await self.reject_message(ctx)
             return
 
         # set cooldown, this is done before to prevent possible spam
@@ -100,6 +126,18 @@ class LFGCog(discord.Cog):
             return await ctx.respond(
                 f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
                 ephemeral=True
+            )
+
+        missing = missing_channel_perms(ctx.channel, "view_channel", "send_messages")
+        if missing:
+            await notify_owner(
+                ctx.guild,
+                f"I can't post LFG invites in {ctx.channel.mention} — missing {', '.join(missing)}.",
+            )
+            return await ctx.respond(
+                "I can't post the invite here right now — I'm missing permissions in this channel. "
+                "The server admins have been notified.",
+                ephemeral=True,
             )
 
         # set cooldown, this is done before to prevent possible spam

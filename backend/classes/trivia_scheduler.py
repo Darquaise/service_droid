@@ -9,6 +9,7 @@ import discord
 
 from store import trivia_repo
 
+from .permissions import DISSOLVE_AFTER_PERM_FAILS, missing_channel_perms, notify_owner
 from .trivia import TriviaChannelConfig, TriviaHandler, TriviaQuestion
 from .trivia_modes import (
     MODE_AI,
@@ -28,12 +29,13 @@ def _log(msg: str) -> None:
 
 
 class TriviaScheduler:
-    __slots__ = ("bot", "_question_tasks", "_answer_tasks")
+    __slots__ = ("bot", "_question_tasks", "_answer_tasks", "_perm_failures")
 
     def __init__(self, bot: "ServiceDroid"):
         self.bot = bot
         self._question_tasks: dict[int, asyncio.Task] = {}
         self._answer_tasks: dict[int, asyncio.Task] = {}
+        self._perm_failures: set[int] = set()
 
     def schedule_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
         self.cancel_channel(channel_id)
@@ -57,6 +59,56 @@ class TriviaScheduler:
 
     def _clear_pending_detached(self, channel_id: int) -> None:
         self.bot.loop.create_task(trivia_repo.delete_pending(channel_id))
+
+    def _note_perm_failure(
+            self, channel_id: int, guild: discord.Guild,
+            config: TriviaChannelConfig, missing: list[str],
+    ) -> None:
+        # Detached: dissolving cancels this channel's tasks, one of which is the caller.
+        if channel_id in self._perm_failures:
+            return
+        self._perm_failures.add(channel_id)
+        self.bot.loop.create_task(
+            self._handle_perm_failure(channel_id, guild, config, missing),
+            name=f"trivia-perms-{channel_id}",
+        )
+
+    async def _handle_perm_failure(
+            self, channel_id: int, guild: discord.Guild,
+            config: TriviaChannelConfig, missing: list[str],
+    ) -> None:
+        try:
+            config.perm_fail_count += 1
+            if config.perm_fail_count >= DISSOLVE_AFTER_PERM_FAILS:
+                await self._dissolve_channel(channel_id, guild, missing)
+                return
+            _log(
+                f"channel {channel_id}: missing {missing} "
+                f"({config.perm_fail_count}/{DISSOLVE_AFTER_PERM_FAILS}), keeping the mapping"
+            )
+            await notify_owner(
+                guild,
+                f"I couldn't post trivia in <#{channel_id}> because I'm missing permission(s) "
+                f"there: {', '.join(missing)}. I'll keep trying — grant them to fix it.",
+            )
+        finally:
+            self._perm_failures.discard(channel_id)
+
+    async def _dissolve_channel(
+            self, channel_id: int, guild: discord.Guild, missing: list[str]
+    ) -> None:
+        from .guild import Guild
+        _log(f"channel {channel_id}: missing {missing}, dissolving trivia mapping")
+        # Stop the loop before awaiting, so a later tick can't queue a second dissolve.
+        self.cancel_channel(channel_id)
+        guild_obj = Guild.get(guild.id)
+        if guild_obj is not None:
+            await guild_obj.remove_trivia_channel(channel_id)
+        await notify_owner(
+            guild,
+            f"I disabled trivia in <#{channel_id}> because I'm still missing permission(s) "
+            f"there: {', '.join(missing)}. Bind the channel again once they're restored.",
+        )
 
     async def _loop_for_channel(self, channel_id: int, config: TriviaChannelConfig) -> None:
         try:
@@ -106,6 +158,13 @@ class TriviaScheduler:
             await trivia_repo.delete_pending(channel_id)
             return
 
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        if missing:
+            config.clear_pending()
+            await trivia_repo.delete_pending(channel_id)
+            self._note_perm_failure(channel_id, channel.guild, config, missing)
+            return
+
         description = ""
         if pending.get("question"):
             description += f"> {pending['question']}\n\n"
@@ -125,6 +184,8 @@ class TriviaScheduler:
             raise
         except Exception as e:
             _log(f"channel {channel_id}: failed to send pending reveal: {e!r}")
+        else:
+            config.perm_fail_count = 0
         config.clear_pending()
         await trivia_repo.delete_pending(channel_id)
 
@@ -132,6 +193,11 @@ class TriviaScheduler:
         channel = self.bot.get_channel(channel_id)
         if channel is None or not isinstance(channel, discord.TextChannel):
             _log(f"channel {channel_id}: not accessible, skipping")
+            return
+
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        if missing:
+            self._note_perm_failure(channel_id, channel.guild, config, missing)
             return
 
         handler = TriviaHandler.get(channel.guild.id)
@@ -178,6 +244,7 @@ class TriviaScheduler:
         )
         embed.set_footer(text=f"Answer in {config.response}s")
         await channel.send(embed=embed)
+        config.perm_fail_count = 0
 
         due_at = datetime.now(timezone.utc).timestamp() + config.response
         config.set_pending(due_at, question, wording)
@@ -207,6 +274,15 @@ class TriviaScheduler:
             self._answer_tasks.pop(channel.id, None)
             raise
 
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        if missing:
+            config.clear_pending()
+            await trivia_repo.delete_pending(channel.id)
+            # Drop the handle first: the dissolve cancels this channel's tasks.
+            self._answer_tasks.pop(channel.id, None)
+            self._note_perm_failure(channel.id, channel.guild, config, missing)
+            return
+
         description = ""
         if wording:
             description += f"> {wording}\n\n"
@@ -229,6 +305,8 @@ class TriviaScheduler:
             raise
         except Exception as e:
             _log(f"channel {channel.id}: failed to send answer: {e!r}")
+        else:
+            config.perm_fail_count = 0
 
         config.clear_pending()
         await trivia_repo.delete_pending(channel.id)

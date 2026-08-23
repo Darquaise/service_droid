@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from classes import (
     ServiceDroid, ApplicationContext, TriviaHandler, TriviaChannelConfig, TriviaQuestionPaginatorView, trivia_modes,
-    TriviaScheduler, build_command_listing_embed, option
+    TriviaScheduler, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
 )
 
 CRON_HELP = (
@@ -247,6 +247,10 @@ class TriviaSettingsCog(commands.Cog):
             )
         if response <= 0:
             return await ctx.respond("Response time must be greater than 0 seconds.", ephemeral=True)
+
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        if missing:
+            return await ctx.respond(format_missing_perms(channel, missing), ephemeral=True)
 
         handler = TriviaHandler.get_or_create(ctx.guild)
         list_names = handler.get_list_names()

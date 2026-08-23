@@ -1,7 +1,10 @@
 from datetime import timedelta
 import discord
 
-from classes import ServiceDroid, ApplicationContext, build_command_listing_embed, option
+from classes import (
+    ServiceDroid, ApplicationContext, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
+    role_assignment_error,
+)
 from cogs.galatron_commands import TextGenerator
 from converters.time import td2text_long, TIME_UNITS
 
@@ -46,6 +49,10 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        if missing:
+            return await ctx.respond(format_missing_perms(channel, missing), ephemeral=True)
+
         await ctx.g.add_galatron_channel(channel)
 
         return await ctx.respond(
@@ -75,6 +82,9 @@ class GalatronSettingsCog(discord.Cog):
     ):
         if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
+        role_err = role_assignment_error(ctx.guild, role)
+        if role_err:
+            return await ctx.respond(role_err, ephemeral=True)
         await ctx.g.set_galatron_role(role)
         return await ctx.respond(f"{role.mention} is now being used for the Galatron hunt!")
 

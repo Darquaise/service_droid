@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 import discord
 from mcstatus import JavaServer
 
+from .permissions import DISSOLVE_AFTER_PERM_FAILS, missing_channel_perms, notify_owner
+
 if TYPE_CHECKING:
     from .bot import ServiceDroid
 
@@ -36,7 +38,7 @@ async def fetch_player_count(address: str) -> int | None:
 
 
 class MinecraftStatusConfig:
-    __slots__ = ("channel_id", "address", "was_online", "fail_count")
+    __slots__ = ("channel_id", "address", "was_online", "fail_count", "perm_fail_count")
 
     def __init__(self, channel_id: int, address: str):
         self.channel_id = channel_id
@@ -44,6 +46,8 @@ class MinecraftStatusConfig:
         # runtime-only ping tracking (not persisted)
         self.was_online = False
         self.fail_count = 0
+        # runtime-only strike count for missing channel permissions (not persisted)
+        self.perm_fail_count = 0
 
     def status_name(self, online: int | None) -> str:
         if online is not None:
@@ -58,11 +62,12 @@ class MinecraftStatusConfig:
 
 
 class MinecraftStatusUpdater:
-    __slots__ = ("bot", "_tasks")
+    __slots__ = ("bot", "_tasks", "_perm_failures")
 
     def __init__(self, bot: "ServiceDroid"):
         self.bot = bot
         self._tasks: dict[int, asyncio.Task] = {}
+        self._perm_failures: set[int] = set()
 
     def schedule_channel(self, channel_id: int, config: MinecraftStatusConfig) -> None:
         self.cancel_channel(channel_id)
@@ -80,6 +85,57 @@ class MinecraftStatusUpdater:
     def cancel_all(self) -> None:
         for cid in list(self._tasks):
             self.cancel_channel(cid)
+
+    def _note_perm_failure(
+            self, channel_id: int, guild: discord.Guild,
+            config: MinecraftStatusConfig, missing: list[str],
+    ) -> None:
+        # Detached: dissolving cancels this channel's task, which is the caller.
+        if channel_id in self._perm_failures:
+            return
+        self._perm_failures.add(channel_id)
+        self.bot.loop.create_task(
+            self._handle_perm_failure(channel_id, guild, config, missing),
+            name=f"minecraft-perms-{channel_id}",
+        )
+
+    async def _handle_perm_failure(
+            self, channel_id: int, guild: discord.Guild,
+            config: MinecraftStatusConfig, missing: list[str],
+    ) -> None:
+        try:
+            config.perm_fail_count += 1
+            if config.perm_fail_count >= DISSOLVE_AFTER_PERM_FAILS:
+                await self._dissolve_channel(channel_id, guild, missing)
+                return
+            _log(
+                f"channel {channel_id}: missing {missing} "
+                f"({config.perm_fail_count}/{DISSOLVE_AFTER_PERM_FAILS}), keeping the mapping"
+            )
+            await notify_owner(
+                guild,
+                f"I couldn't update the Minecraft status in <#{channel_id}> because I'm missing "
+                f"permission(s) there: {', '.join(missing)}. I'll keep trying — grant them to fix it.",
+            )
+        finally:
+            self._perm_failures.discard(channel_id)
+
+    async def _dissolve_channel(
+            self, channel_id: int, guild: discord.Guild, missing: list[str]
+    ) -> None:
+        from .guild import Guild
+        _log(f"channel {channel_id}: missing {missing}, dissolving minecraft mapping")
+        # Stop the loop before awaiting, so a later tick can't queue a second dissolve.
+        self.cancel_channel(channel_id)
+        guild_obj = Guild.get(guild.id)
+        if guild_obj is not None:
+            await guild_obj.remove_minecraft_channel(channel_id)
+        await notify_owner(
+            guild,
+            f"I stopped mirroring the Minecraft status in <#{channel_id}> because I'm still "
+            f"missing permission(s) there: {', '.join(missing)}. Set it up again once they're "
+            f"restored.",
+        )
 
     async def _loop_for_channel(self, channel_id: int, config: MinecraftStatusConfig) -> None:
         try:
@@ -100,13 +156,25 @@ class MinecraftStatusUpdater:
             _log(f"channel {channel_id}: not accessible or not a voice channel, skipping")
             return
 
+        missing = missing_channel_perms(channel, "view_channel", "manage_channels")
+        if missing:
+            self._note_perm_failure(channel_id, channel.guild, config, missing)
+            return
+
         online = await fetch_player_count(config.address)
         name = config.status_name(online)
         if channel.name == name:
+            config.perm_fail_count = 0
             return
         try:
             await channel.edit(name=name, reason=f"Minecraft status: {config.address}")
         except discord.Forbidden:
-            _log(f"channel {channel_id}: missing Manage Channels permission, cannot rename")
+            # The cached overwrites said we were allowed; re-read them for the real reason.
+            missing = missing_channel_perms(channel, "view_channel", "manage_channels")
+            self._note_perm_failure(
+                channel_id, channel.guild, config, missing or ["Manage Channels"]
+            )
         except discord.HTTPException as e:
             _log(f"channel {channel_id}: failed to rename: {e!r}")
+        else:
+            config.perm_fail_count = 0

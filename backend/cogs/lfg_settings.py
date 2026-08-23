@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed, build_command_listing_embed, option
+    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed, build_command_listing_embed, option,
+    missing_channel_perms, format_missing_perms, role_ping_warning,
 )
 from converters import TIME_UNITS
 
@@ -104,11 +105,18 @@ class LFGSettingsCog(discord.Cog):
             channel: discord.TextChannel = option(discord.TextChannel, "Channel that should accept /lfg"),
             role: discord.Role = option(discord.Role, "Role to be mentioned by /lfg in this channel"),
     ):
+        missing = missing_channel_perms(channel, "view_channel", "send_messages")
+        if missing:
+            return await ctx.respond(format_missing_perms(channel, missing), ephemeral=True)
+
+        ping_warning = role_ping_warning(channel, role)
+        warning_suffix = f"\n\n{ping_warning}" if ping_warning else ""
+
         was_present = channel.id in ctx.g.lfg_channels
         added = await ctx.g.add_lfg_role(channel, role)
         if not added:
             return await ctx.respond(
-                f"{role.mention} is already being mentioned on LFG in {channel.mention}!",
+                f"{role.mention} is already being mentioned on LFG in {channel.mention}!{warning_suffix}",
                 ephemeral=True
             )
 
@@ -116,12 +124,12 @@ class LFGSettingsCog(discord.Cog):
             return await ctx.respond(
                 f"{role.mention} has been added to {channel.mention}\n"
                 "Roles now being mentioned in this channel: "
-                f"{' '.join(ctx.lfg.roles_str)}",
+                f"{' '.join(ctx.lfg.roles_str)}{warning_suffix}",
                 ephemeral=True
             )
         return await ctx.respond(
             f"{channel.mention} is now a LFG Channel with the {role.mention} role being mentioned.\n"
-            f"To add more use the same command with the same channel selected, but a different role.",
+            f"To add more use the same command with the same channel selected, but a different role.{warning_suffix}",
             ephemeral=True
         )
 

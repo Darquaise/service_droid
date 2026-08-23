@@ -4,7 +4,7 @@ from discord.ext import commands
 
 from classes import (
     ServiceDroid, ApplicationContext, Guild, MinecraftStatusConfig, MinecraftStatusUpdater,
-    build_command_listing_embed, fetch_player_count, option,
+    build_command_listing_embed, fetch_player_count, option, missing_channel_perms, format_missing_perms,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,10 @@ class MinecraftCog(commands.Cog):
         address = address.strip()
         if not address:
             return await ctx.respond("The server address must not be empty.", ephemeral=True)
+
+        missing = missing_channel_perms(channel, "view_channel", "manage_channels")
+        if missing:
+            return await ctx.respond(format_missing_perms(channel, missing), ephemeral=True)
 
         await ctx.defer(ephemeral=True)
         online = await fetch_player_count(address)

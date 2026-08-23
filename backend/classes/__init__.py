@@ -13,4 +13,8 @@ from .minecraft import MinecraftStatusConfig, MinecraftStatusUpdater, fetch_play
 from .reload import reload_guild
 from .command_listing import build_command_listing_embed
 from .options import option
+from .permissions import (
+    missing_channel_perms, format_missing_perms, role_assignment_error,
+    role_ping_warning, notify_owner,
+)
 from . import trivia_modes

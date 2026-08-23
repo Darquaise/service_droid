@@ -5,7 +5,9 @@ import math
 import random
 from datetime import timedelta
 
-from classes import ApplicationContext, ServiceDroid, GalatronStatsView, GalatronLeaderboardView
+from classes import (
+    ApplicationContext, ServiceDroid, GalatronStatsView, GalatronLeaderboardView, role_assignment_error, notify_owner
+)
 from classes.galatron_leaderboard_view import PRIME_DELAY
 
 
@@ -268,18 +270,43 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
+        # Bail out before consuming the attempt if we couldn't hand out the role on a win.
+        role_err = role_assignment_error(ctx.guild, ctx.galatron.role)
+        if role_err:
+            await notify_owner(
+                ctx.guild,
+                f"The Galatron hunt is broken: {role_err}\n"
+                f"Attempts are paused until this is fixed.",
+            )
+            return await ctx.respond(
+                "The Galatron ritual is unstable — the server admins have been notified to fix "
+                "my permissions. Try again once it's sorted.",
+                ephemeral=True,
+            )
+
         await ctx.g.galatron_register_attempt(ctx.author)
 
         old_owner = ctx.galatron.current_owner
         roll = random.random()
 
         if roll < ctx.g.galatron_chance:
+            try:
+                if old_owner:
+                    await old_owner.remove_roles(ctx.galatron.role, reason="Galatron lost")
+                await ctx.author.add_roles(ctx.galatron.role, reason="Galatron claimed")
+            except discord.Forbidden:
+                await notify_owner(
+                    ctx.guild,
+                    f"I lost permission to assign {ctx.galatron.role.mention} mid-hunt "
+                    f"(is my role still above it?). The last attempt couldn't be completed.",
+                )
+                return await ctx.respond(
+                    "Reality resisted — I couldn't bind the Galatron. The server admins have "
+                    "been notified.",
+                    ephemeral=True,
+                )
+
             await ctx.g.galatron_add_win(ctx.author)
-
-            if old_owner:
-                await old_owner.remove_roles(ctx.galatron.role, reason="Galatron lost")
-
-            await ctx.author.add_roles(ctx.galatron.role, reason="Galatron claimed")
 
             flavour = TextGenerator.success_text_main()
             bearer_line = TextGenerator.success_bearer_line()
