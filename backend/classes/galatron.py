@@ -1,10 +1,15 @@
 from __future__ import annotations
+from collections import Counter
+from dataclasses import dataclass
 from datetime import timedelta, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 import discord
 
 if TYPE_CHECKING:
     from .context import ApplicationContext
+
+DEFAULT_CHANCE = 0.005
+DEFAULT_COOLDOWN_S = 86_400
 
 
 class GalatronData:
@@ -19,13 +24,12 @@ class GalatronData:
 
     @property
     def is_on_cooldown(self) -> datetime | None:
-        member_id = self._ctx.user.id
-        if member_id in self._ctx.g.galatron_last_used:
-            wait_time = datetime.now() - self._ctx.g.galatron_last_used[member_id]
-            if wait_time < self._ctx.g.galatron_cooldown:
-                return self._ctx.g.galatron_last_used[member_id] + self._ctx.g.galatron_cooldown
+        last_used = self._ctx.g.galatron_log.last_attempt_at(self._ctx.user.id)
+        if last_used is None:
+            return None
 
-        return None
+        next_allowed = last_used + self._ctx.g.galatron_cooldown
+        return next_allowed if next_allowed > datetime.now() else None
 
     @property
     def is_current_owner(self) -> bool:
@@ -36,41 +40,80 @@ class GalatronData:
 
     @property
     def current_owner(self) -> discord.Member | None:
-        return self._ctx.g.galatron_history.get_current_owner()
+        return self._ctx.g.galatron_log.get_current_owner()
 
     @property
     def role(self) -> discord.Role | None:
         return self._ctx.g.galatron_role
 
 
-class GalatronHistory:
-    __slots__ = "guild", "history"
+@dataclass(slots=True)
+class GalatronAttempt:
+    member_id: int
+    occurred_at: datetime
+    won: bool
 
-    def __init__(self, guild: discord.Guild, raw_history: list[dict[str, int]]):
+
+class GalatronLog:
+    """Every attempt ever made in a guild, oldest first; a win is an attempt with
+    ``won``. Aggregates (per-member totals, last attempt) are kept alongside so the
+    hot paths don't have to walk the list."""
+
+    __slots__ = "guild", "attempts", "_totals", "_last_attempt"
+
+    def __init__(self, guild: discord.Guild, attempts: Iterable[GalatronAttempt] = ()):
         self.guild = guild
-        self.history = raw_history
+        self.attempts = sorted(attempts, key=lambda a: a.occurred_at)
+        self._totals: Counter[int] = Counter()
+        self._last_attempt: dict[int, datetime] = {}
+        for attempt in self.attempts:
+            self._index(attempt)
 
-    def add_entry(self, member: discord.Member, timestamp: datetime | None = None) -> None:
-        if timestamp is None:
-            timestamp = datetime.now().replace(microsecond=0)
+    def _index(self, attempt: GalatronAttempt) -> None:
+        self._totals[attempt.member_id] += 1
+        previous = self._last_attempt.get(attempt.member_id)
+        if previous is None or attempt.occurred_at > previous:
+            self._last_attempt[attempt.member_id] = attempt.occurred_at
 
-        self.history.append({"timestamp": int(timestamp.timestamp()), "member_id": member.id})
+    def add(self, member_id: int, occurred_at: datetime, won: bool) -> GalatronAttempt:
+        attempt = GalatronAttempt(member_id, occurred_at, won)
+        self.attempts.append(attempt)
+        self._index(attempt)
+        return attempt
+
+    @property
+    def wins(self) -> list[GalatronAttempt]:
+        return [a for a in self.attempts if a.won]
+
+    @property
+    def total_attempts(self) -> int:
+        return len(self.attempts)
+
+    @property
+    def totals(self) -> dict[int, int]:
+        """attempts per member id"""
+        return self._totals
+
+    def total_for(self, member_id: int) -> int:
+        return self._totals.get(member_id, 0)
+
+    def last_attempt_at(self, member_id: int) -> datetime | None:
+        return self._last_attempt.get(member_id)
 
     def get_current_owner(self) -> discord.Member | None:
-        if len(self.history) == 0:
-            return None
-        return self.guild.get_member(self.history[-1]["member_id"])
+        for attempt in reversed(self.attempts):
+            if attempt.won:
+                return self.guild.get_member(attempt.member_id)
+        return None
 
     async def calculate_leaderboard(self) -> list[tuple[discord.Member, timedelta, int]]:
         member_times: dict[int, list] = {}
         times_received: dict[int, int] = {}
 
-        for x, entry in enumerate(self.history):
-            timestamp = datetime.fromtimestamp(entry["timestamp"])
-            member_id = entry["member_id"]
-
-            end_time = datetime.fromtimestamp(self.history[x + 1]["timestamp"]) if len(
-                self.history) > x + 1 else datetime.now()
+        wins = self.wins
+        for x, attempt in enumerate(wins):
+            member_id = attempt.member_id
+            end_time = wins[x + 1].occurred_at if len(wins) > x + 1 else datetime.now()
 
             if member_id not in member_times:
                 member = self.guild.get_member(member_id)
@@ -83,7 +126,7 @@ class GalatronHistory:
                 member_times[member_id] = [member, timedelta()]
                 times_received[member_id] = 0
 
-            member_times[member_id][1] += end_time - timestamp
+            member_times[member_id][1] += end_time - attempt.occurred_at
             times_received[member_id] += 1
 
         return [

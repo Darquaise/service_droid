@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+from collections import Counter
 from typing import TYPE_CHECKING
 import discord
 from datetime import timedelta, datetime
@@ -7,7 +8,8 @@ from datetime import timedelta, datetime
 from store import galatron_repo, guild_repo, lfg_repo, minecraft_repo, trivia_repo
 
 from .base.guildbase import GuildBase
-from .galatron import GalatronHistory
+from .galatron import DEFAULT_CHANCE, DEFAULT_COOLDOWN_S, GalatronAttempt, GalatronLog
+from .generics import SettingTimeline
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 from .minecraft import MinecraftStatusConfig
 from .trivia import TriviaChannelConfig
@@ -21,16 +23,15 @@ logger = logging.getLogger(__name__)
 class Guild(GuildBase):
     __slots__ = (
         "host_roles", "lfg_channels",
-        "galatron_role", "galatron_chance", "galatron_cooldown", "galatron_channels",
-        "galatron_history", "galatron_last_used", "galatron_total_times_used",
+        "galatron_role", "galatron_channels", "galatron_log",
+        "galatron_cooldowns", "galatron_chances",
         "trivia_channels", "minecraft_channels",
     )
 
     def __init__(
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
-            galatron_role: discord.Role | None, galatron_chance: float, galatron_cooldown: timedelta,
-            galatron_channels: list[discord.TextChannel], galatron_history: GalatronHistory,
-            galatron_last_used: dict[int, datetime], galatron_total_times_used: dict[int, int],
+            galatron_role: discord.Role | None, galatron_channels: list[discord.TextChannel],
+            galatron_log: GalatronLog, galatron_cooldowns: SettingTimeline, galatron_chances: SettingTimeline,
             trivia_channels: dict[int, TriviaChannelConfig], minecraft_channels: dict[int, MinecraftStatusConfig],
     ):
         super().__init__(guild)
@@ -41,12 +42,10 @@ class Guild(GuildBase):
 
         # galatron stuff
         self.galatron_role = galatron_role
-        self.galatron_chance = galatron_chance
-        self.galatron_cooldown = galatron_cooldown
         self.galatron_channels = galatron_channels
-        self.galatron_history = galatron_history
-        self.galatron_last_used = galatron_last_used
-        self.galatron_total_times_used = galatron_total_times_used
+        self.galatron_log = galatron_log
+        self.galatron_cooldowns = galatron_cooldowns
+        self.galatron_chances = galatron_chances
 
         # trivia stuff
         self.trivia_channels = trivia_channels
@@ -105,17 +104,52 @@ class Guild(GuildBase):
         await lfg_repo.delete_channel(self.id, channel_id)
 
     # Galatron
+    @property
+    def galatron_cooldown(self) -> timedelta:
+        return timedelta(seconds=self.galatron_cooldowns.current)
+
+    @property
+    def galatron_chance(self) -> float:
+        return self.galatron_chances.current
+
     async def set_galatron_role(self, role: discord.Role | None) -> None:
         self.galatron_role = role
         await guild_repo.set_galatron_role(self.id, role.id if role else None)
 
     async def set_galatron_chance(self, chance: float) -> None:
-        self.galatron_chance = chance
-        await guild_repo.set_galatron_chance(self.id, chance)
+        now = datetime.now()
+        self.galatron_chances.add(chance, now)
+        await galatron_repo.add_chance(self.id, chance, now.timestamp())
 
     async def set_galatron_cooldown(self, cooldown: timedelta) -> None:
-        self.galatron_cooldown = cooldown
-        await guild_repo.set_galatron_cooldown(self.id, int(cooldown.total_seconds()))
+        now = datetime.now()
+        seconds = int(cooldown.total_seconds())
+        self.galatron_cooldowns.add(seconds, now)
+        await galatron_repo.add_cooldown(self.id, seconds, now.timestamp())
+
+    async def ensure_galatron_timelines(self, joined_at: datetime) -> None:
+        """Give cooldown and chance a defined starting point. The bot cannot have had a
+        setting before it joined, so a missing timeline starts at the join with the
+        current value, and one reaching further back is pulled forward to it (that is
+        how the values carried over by the schema migration get their real start)."""
+        await self._ensure_timeline_start(
+            self.galatron_cooldowns, joined_at,
+            galatron_repo.add_cooldown, galatron_repo.move_cooldown_start,
+        )
+        await self._ensure_timeline_start(
+            self.galatron_chances, joined_at,
+            galatron_repo.add_chance, galatron_repo.move_chance_start,
+        )
+
+    async def _ensure_timeline_start(self, timeline, joined_at, add, move) -> None:
+        start = timeline.start
+        if start is None:
+            value = timeline.current
+            timeline.add(value, joined_at)
+            await add(self.id, value, joined_at.timestamp())
+        elif start < joined_at:
+            timeline.periods[0] = (joined_at, timeline.periods[0][1])
+            await move(self.id, start.timestamp(), joined_at.timestamp())
 
     async def add_galatron_channel(self, channel: discord.TextChannel) -> None:
         self.galatron_channels.append(channel)
@@ -125,26 +159,22 @@ class Guild(GuildBase):
         self.galatron_channels.remove(channel)
         await galatron_repo.delete_channel(self.id, channel.id)
 
-    async def galatron_register_attempt(self, member: discord.Member) -> None:
-        now = datetime.now().replace(microsecond=0)
-        self.galatron_last_used[member.id] = now
-        total = await galatron_repo.register_attempt(self.id, member.id, now.timestamp())
-        self.galatron_total_times_used[member.id] = total
+    def galatron_attempts_by_chance(self) -> Counter[float]:
+        """How many attempts were made under which win chance — the chance that was in
+        force at the time, not today's."""
+        counts: Counter[float] = Counter()
+        for attempt in self.galatron_log.attempts:
+            counts[self.galatron_chances.value_at(attempt.occurred_at)] += 1
+        return counts
 
-    async def galatron_add_win(self, member: discord.Member) -> None:
-        ts = datetime.now().replace(microsecond=0)
-        self.galatron_history.add_entry(member, ts)
-        await galatron_repo.append_history(self.id, member.id, ts.timestamp())
-
-    async def galatron_increment_total(self, member: discord.Member) -> None:
-        total = await galatron_repo.increment_total(self.id, member.id)
-        self.galatron_total_times_used[member.id] = total
+    async def galatron_record_attempt(self, member: discord.Member, won: bool) -> None:
+        occurred_at = datetime.now().replace(microsecond=0)
+        self.galatron_log.add(member.id, occurred_at, won)
+        await galatron_repo.add_attempt(self.id, member.id, occurred_at.timestamp(), won)
 
     async def galatron_reset(self) -> None:
-        self.galatron_history = GalatronHistory(self.guild, [])
-        self.galatron_last_used = {}
-        self.galatron_total_times_used = {}
-        await galatron_repo.clear_galatron(self.id)
+        self.galatron_log = GalatronLog(self.guild)
+        await galatron_repo.clear_attempts(self.id)
 
     # Trivia
     async def set_trivia_channel(self, config: TriviaChannelConfig) -> None:
@@ -172,8 +202,8 @@ class Guild(GuildBase):
     def from_state(cls, guild: discord.Guild, gs: "GuildState | None"):
         if gs is None:
             return cls(
-                guild, {}, {}, None, 0.005, timedelta(days=1), [],
-                GalatronHistory(guild, []), {}, {}, {}, {},
+                guild, {}, {}, None, [], GalatronLog(guild),
+                SettingTimeline(DEFAULT_COOLDOWN_S), SettingTimeline(DEFAULT_CHANCE), {}, {},
             )
 
         # lfg stuff
@@ -194,25 +224,22 @@ class Guild(GuildBase):
 
         # galatron stuff
         galatron_role = guild.get_role(gs.galatron_role_id) if gs.galatron_role_id else None
-        galatron_cooldown = timedelta(seconds=gs.galatron_cooldown_s)
         galatron_channels = [
             c for c in (guild.get_channel(cid) for cid in gs.galatron_channels)
             if isinstance(c, discord.TextChannel)
         ]
-        galatron_history = GalatronHistory(
+        galatron_log = GalatronLog(
             guild,
-            [{"timestamp": e.occurred_at, "member_id": e.member_id} for e in gs.galatron_history],
+            [GalatronAttempt(a.member_id, datetime.fromtimestamp(a.occurred_at), a.won) for a in gs.galatron_attempts],
         )
-
-        cutoff = datetime.now() - galatron_cooldown
-        galatron_last_used: dict[int, datetime] = {}
-        for m in gs.galatron_members:
-            if m.last_used is None:
-                continue
-            ts = datetime.fromtimestamp(m.last_used)
-            if ts >= cutoff:
-                galatron_last_used[m.member_id] = ts
-        galatron_total_times_used = {m.member_id: m.total for m in gs.galatron_members}
+        galatron_cooldowns = SettingTimeline(
+            DEFAULT_COOLDOWN_S,
+            [(datetime.fromtimestamp(p.valid_from), p.value) for p in gs.galatron_cooldowns],
+        )
+        galatron_chances = SettingTimeline(
+            DEFAULT_CHANCE,
+            [(datetime.fromtimestamp(p.valid_from), p.value) for p in gs.galatron_chances],
+        )
 
         # trivia stuff
         trivia_channels = {
@@ -230,8 +257,6 @@ class Guild(GuildBase):
         }
 
         return cls(
-            guild, host_roles, lfg_channels,
-            galatron_role, gs.galatron_chance, galatron_cooldown, galatron_channels,
-            galatron_history, galatron_last_used, galatron_total_times_used,
-            trivia_channels, minecraft_channels,
+            guild, host_roles, lfg_channels, galatron_role, galatron_channels, galatron_log, galatron_cooldowns,
+            galatron_chances, trivia_channels, minecraft_channels,
         )

@@ -30,6 +30,34 @@ Follow the log with `docker compose logs -f bot`.
 **Updating:** `git pull && docker compose up -d --build`.
 On the maintained server this is automatic — pushing to `main` (prod) or `dev` triggers a GitHub Actions deploy.
 
+## Permissions
+
+What the bot needs in the channel a feature runs in:
+
+| Feature          | Required                                             |
+|------------------|------------------------------------------------------|
+| LFG              | View Channel, Send Messages                          |
+| Galatron         | View Channel, Send Messages, Embed Links             |
+| Trivia           | View Channel, Send Messages, Embed Links             |
+| Minecraft status | View Channel, Manage Channels                        |
+
+Handing out the Galatron role additionally needs **Manage Roles**.
+That role has to sit below the bot's highest role, and it can be neither `@everyone` nor a role managed by an integration.
+
+Setup commands check the target channel first: when something is missing they name it and save nothing.
+If a role LFG should ping is not mentionable and the bot lacks **Mention @everyone, @here and All Roles**, the setup command warns that the ping reaches nobody.
+
+When a permission is missing at the moment the bot posts:
+
+- **Scheduled features** (Trivia, Minecraft status) notify the server owner and keep the binding.
+  After three consecutive failed attempts the binding is dropped and has to be set up again once the permission is back.
+- **Member-triggered features** (LFG, Galatron) answer the member privately and notify the owner.
+  A Galatron attempt that cannot be completed leaves the member's cooldown untouched.
+  An `!lfg` that cannot be answered is marked with ❌ and removed five seconds later, as far as the bot may delete messages.
+
+Notifications reach the server owner as a direct message, so the owner has to accept DMs from the server.
+The same warning is not repeated within six hours; a different problem is always reported.
+
 ## Commands
 
 ### LFG
@@ -54,14 +82,17 @@ On the maintained server this is automatic — pushing to `main` (prod) or `dev`
 
 A community claim-the-artifact game: members roll for a server-wide role, with cooldowns and chance configurable per guild.
 
-| Command                                   | Description                                                        |
-|-------------------------------------------|--------------------------------------------------------------------|
-| `/attempt_galatron` / `/galatron_attempt` | Roll for the Galatron.                                             |
-| `/locate_galatron` / `/galatron_locate`   | Show the current bearer.                                           |
-| `/galatron_leaderboard`                   | All-time top bearers (by total bearing duration).                  |
-| `/galatron_stats`                         | Paginated per-member stats (tries, successes, time held).          |
-| `/galatron_stats_total`                   | Aggregate stats incl. cumulative and exact binomial probabilities. |
-| `/commands_galatron`                      | List all Galatron-related slash commands (clickable mentions).     |
+Every attempt is recorded individually with its timestamp.
+Cooldown and chance are stored the same way, so a change applies from the moment it is made and past attempts stay attributable to the settings that were in force back then.
+
+| Command                                   | Description                                                         |
+|-------------------------------------------|---------------------------------------------------------------------|
+| `/attempt_galatron` / `/galatron_attempt` | Roll for the Galatron.                                              |
+| `/locate_galatron` / `/galatron_locate`   | Show the current bearer.                                            |
+| `/galatron_leaderboard`                   | All-time top bearers (by total bearing duration).                   |
+| `/galatron_stats`                         | Paginated per-member stats (tries, successes, time held).           |
+| `/galatron_stats_total`                   | Aggregate stats, weighing each attempt by the chance in force then. |
+| `/commands_galatron`                      | List all Galatron-related slash commands (clickable mentions).      |
 
 **Setup (Admin):**
 
@@ -73,7 +104,7 @@ A community claim-the-artifact game: members roll for a server-wide role, with c
 | `/setting_set_galatron_cooldown {time_unit} {time_amount}` | Per-member cooldown between attempts.                      |
 | `/setting_set_galatron_chance {chance}`                    | Success chance (as percentage).                            |
 | `/current_settings_galatron`                               | Show current Galatron setup.                               |
-| `/galatron_reset`                                          | Wipe all Galatron history, last-used, and total-uses data. |
+| `/galatron_reset`                                          | Wipe every recorded Galatron attempt.                      |
 
 ### Trivia
 
@@ -117,7 +148,6 @@ The bot pings the server directly and renames the channel to one of:
 Discord rate-limits channel renames to **2 per 10 minutes per channel**, so the
 name updates roughly every 5–6 minutes (and only when the status actually changed).
 A restart that finishes within ~11 minutes shows as `Restarting`; longer outages flip to `Offline`.
-The bot needs the **Manage Channels** permission on the voice channel.
 
 **Commands (Admin):**
 

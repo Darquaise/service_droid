@@ -54,7 +54,10 @@ class StartupCog(commands.Cog):
         # --> load guilds from the database into the in-memory registry
         state = await load_state()
         for guild in self.bot.guilds:
-            Guild.from_state(guild, state.guilds.get(guild.id))
+            g = Guild.from_state(guild, state.guilds.get(guild.id))
+            joined_at = guild.me.joined_at if guild.me else None
+            if joined_at is not None:
+                await g.ensure_galatron_timelines(joined_at.astimezone().replace(tzinfo=None))
         logger.info("loaded %d guild(s)", len(self.bot.guilds))
 
         # --> load trivia handlers

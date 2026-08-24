@@ -5,7 +5,6 @@ from classes import (
     ServiceDroid, ApplicationContext, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
     role_assignment_error,
 )
-from cogs.galatron_commands import TextGenerator
 from converters.time import td2text_long, TIME_UNITS
 
 
@@ -147,82 +146,7 @@ class GalatronSettingsCog(discord.Cog):
         embed = generate_settings_embed(ctx)
         await ctx.respond(embed=embed)
 
-    @discord.slash_command(description="Forcefully reassign the Galatron to another member.")
-    @discord.default_permissions(administrator=True)
-    async def setting_set_galatron_owner(
-            self,
-            ctx: ApplicationContext,
-            member: discord.Member = option(discord.Member, "The new bearer of the Galatron"),
-    ):
-        if not ctx.galatron.role:
-            return await ctx.respond(
-                "This feature hasn't been set up by your admins yet.",
-                ephemeral=True,
-            )
-
-        history = ctx.g.galatron_history.history
-        last_id = history[-1]["member_id"] if history else None
-
-        if last_id == member.id:
-            return await ctx.respond(
-                embed=discord.Embed(
-                    title=TextGenerator.title_decree(),
-                    description=TextGenerator.admin_transfer_same(member.mention),
-                    color=discord.Color.dark_purple(),
-                ),
-                ephemeral=True,
-            )
-
-        old_owner = ctx.galatron.current_owner
-        reason = f"Galatron reassigned by admin {ctx.author}"
-
-        try:
-            await member.add_roles(ctx.galatron.role, reason=reason)
-        except discord.Forbidden:
-            return await ctx.respond(
-                "Missing permissions to assign the Galatron role. "
-                "Ensure the bot's top role is above the Galatron role.",
-                ephemeral=True,
-            )
-        except discord.HTTPException as e:
-            return await ctx.respond(f"Failed to assign role: `{e}`", ephemeral=True)
-
-        if old_owner:
-            try:
-                await old_owner.remove_roles(ctx.galatron.role, reason=reason)
-            except discord.HTTPException:
-                pass
-
-        await ctx.g.galatron_increment_total(member)
-        await ctx.g.galatron_add_win(member)
-
-        embed = discord.Embed(
-            title=TextGenerator.title_decree(),
-            description=TextGenerator.admin_transfer(
-                member.mention,
-                old_owner.mention if old_owner else None,
-            ),
-            color=discord.Color.dark_purple(),
-        )
-
-        announced = 0
-        for channel in ctx.g.galatron_channels:
-            try:
-                await channel.send(embed=embed)
-                announced += 1
-            except discord.HTTPException:
-                pass
-
-        if announced == 0:
-            return await ctx.respond(embed=embed)
-
-        return await ctx.respond(
-            f"Decree issued. {member.mention} now bears the Galatron "
-            f"(announced in {announced} channel{'s' if announced != 1 else ''}).",
-            ephemeral=True,
-        )
-
-    @discord.slash_command(description="Wipe all Galatron history, last-used and total-uses data.")
+    @discord.slash_command(description="Wipe every recorded Galatron attempt.")
     @discord.default_permissions(administrator=True)
     async def galatron_reset(self, ctx: ApplicationContext):
         await ctx.g.galatron_reset()

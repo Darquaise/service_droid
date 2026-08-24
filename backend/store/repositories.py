@@ -11,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .engine import session_factory
 from .notify import emit_change
 from .models import (
+    GalatronAttemptRow,
+    GalatronChanceRow,
     GalatronChannelRow,
-    GalatronHistoryRow,
-    GalatronMemberRow,
+    GalatronCooldownRow,
     GuildRow,
     MinecraftStatusChannelRow,
     LfgChannelRoleRow,
@@ -25,13 +26,13 @@ from .models import (
     TriviaQuestionRow,
 )
 from .state import (
+    AttemptData,
     GuildState,
-    HistoryEntry,
     HostRoleData,
     LfgChannelData,
     LoadedState,
-    MemberStat,
     MinecraftChannelData,
+    PeriodData,
     QuestionData,
     TriviaChannelData,
 )
@@ -72,12 +73,6 @@ class GuildRepo(_Repo):
 
     async def set_galatron_role(self, guild_id: int, role_id: int | None) -> None:
         await self._update_guild(guild_id, galatron_role_id=role_id)
-
-    async def set_galatron_chance(self, guild_id: int, chance: float) -> None:
-        await self._update_guild(guild_id, galatron_chance=chance)
-
-    async def set_galatron_cooldown(self, guild_id: int, cooldown_s: int) -> None:
-        await self._update_guild(guild_id, galatron_cooldown_s=cooldown_s)
 
     async def _update_guild(self, guild_id: int, **values: Any) -> None:
         async with self._session() as s, s.begin():
@@ -161,88 +156,59 @@ class GalatronRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def append_history(self, guild_id: int, member_id: int, occurred_at: float) -> None:
+    async def add_attempt(
+        self, guild_id: int, member_id: int, occurred_at: float, won: bool
+    ) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
-                insert(GalatronHistoryRow).values(
-                    guild_id=guild_id, member_id=member_id, occurred_at=_to_dt(occurred_at)
+                insert(GalatronAttemptRow).values(
+                    guild_id=guild_id,
+                    member_id=member_id,
+                    occurred_at=_to_dt(occurred_at),
+                    won=won,
                 )
             )
             await emit_change(s, guild_id)
 
-    async def register_attempt(self, guild_id: int, member_id: int, last_used: float) -> int:
-        """Atomically bump the attempt counter and stamp the cooldown; returns the
-        new total. ``... + 1 RETURNING`` so concurrent writers never lose a count."""
-        stmt = (
-            pg_insert(GalatronMemberRow)
-            .values(
-                guild_id=guild_id,
-                member_id=member_id,
-                last_used=_to_dt(last_used),
-                total_times_used=1,
-            )
-            .on_conflict_do_update(
-                index_elements=["guild_id", "member_id"],
-                set_={
-                    "last_used": _to_dt(last_used),
-                    "total_times_used": GalatronMemberRow.total_times_used + 1,
-                },
-            )
-            .returning(GalatronMemberRow.total_times_used)
+    async def add_cooldown(self, guild_id: int, cooldown_s: int, valid_from: float) -> None:
+        await self._add_period(
+            GalatronCooldownRow, guild_id, valid_from, cooldown_s=int(cooldown_s)
         )
-        async with self._session() as s, s.begin():
-            total = (await s.execute(stmt)).scalar_one()
-            await emit_change(s, guild_id)
-            return total
 
-    async def increment_total(self, guild_id: int, member_id: int) -> int:
-        """Atomically bump the attempt counter without touching the cooldown
-        (admin transfer); returns the new total."""
-        stmt = (
-            pg_insert(GalatronMemberRow)
-            .values(guild_id=guild_id, member_id=member_id, total_times_used=1)
-            .on_conflict_do_update(
-                index_elements=["guild_id", "member_id"],
-                set_={"total_times_used": GalatronMemberRow.total_times_used + 1},
-            )
-            .returning(GalatronMemberRow.total_times_used)
-        )
-        async with self._session() as s, s.begin():
-            total = (await s.execute(stmt)).scalar_one()
-            await emit_change(s, guild_id)
-            return total
+    async def add_chance(self, guild_id: int, chance: float, valid_from: float) -> None:
+        await self._add_period(GalatronChanceRow, guild_id, valid_from, chance=chance)
 
-    async def upsert_member(
-        self, guild_id: int, member_id: int, *, total: int, last_used: Any = _UNSET
-    ) -> None:
-        """Set a member row to an explicit total (used by the one-time migration,
-        not the live attempt path). ``last_used`` left out keeps the existing value."""
-        values: dict[str, Any] = {
-            "guild_id": guild_id,
-            "member_id": member_id,
-            "total_times_used": total,
-        }
-        set_: dict[str, Any] = {"total_times_used": total}
-        if last_used is not _UNSET:
-            dt = _to_dt(last_used) if last_used is not None else None
-            values["last_used"] = dt
-            set_["last_used"] = dt
+    async def move_cooldown_start(self, guild_id: int, old: float, new: float) -> None:
+        await self._move_period(GalatronCooldownRow, guild_id, old, new)
+
+    async def move_chance_start(self, guild_id: int, old: float, new: float) -> None:
+        await self._move_period(GalatronChanceRow, guild_id, old, new)
+
+    async def _add_period(self, row, guild_id: int, valid_from: float, **value: Any) -> None:
+        """Start a new period of a setting timeline (a second change within the same
+        instant overwrites the first — the value in force is what counts)."""
         async with self._session() as s, s.begin():
             await s.execute(
-                pg_insert(GalatronMemberRow)
-                .values(**values)
-                .on_conflict_do_update(index_elements=["guild_id", "member_id"], set_=set_)
+                pg_insert(row)
+                .values(guild_id=guild_id, valid_from=_to_dt(valid_from), **value)
+                .on_conflict_do_update(index_elements=["guild_id", "valid_from"], set_=value)
             )
             await emit_change(s, guild_id)
 
-    async def clear_galatron(self, guild_id: int) -> None:
-        """Wipe history + per-member aggregates (channels/role/chance kept)."""
+    async def _move_period(self, row, guild_id: int, old: float, new: float) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
-                delete(GalatronHistoryRow).where(GalatronHistoryRow.guild_id == guild_id)
+                update(row)
+                .where(row.guild_id == guild_id, row.valid_from == _to_dt(old))
+                .values(valid_from=_to_dt(new))
             )
+            await emit_change(s, guild_id)
+
+    async def clear_attempts(self, guild_id: int) -> None:
+        """Wipe every attempt (channels/role/cooldown/chance kept)."""
+        async with self._session() as s, s.begin():
             await s.execute(
-                delete(GalatronMemberRow).where(GalatronMemberRow.guild_id == guild_id)
+                delete(GalatronAttemptRow).where(GalatronAttemptRow.guild_id == guild_id)
             )
             await emit_change(s, guild_id)
 
@@ -494,8 +460,9 @@ def _build_guild_state(
     lfg_channels,
     lfg_channel_roles,
     ga_channels,
-    ga_history,
-    ga_members,
+    ga_attempts,
+    ga_cooldowns,
+    ga_chances,
     tr_channels,
     mc_channels,
 ) -> GuildState:
@@ -510,20 +477,14 @@ def _build_guild_state(
             LfgChannelData(c.channel_id, roles_by_c.get(c.channel_id, [])) for c in lfg_channels
         ],
         galatron_role_id=g.galatron_role_id,
-        galatron_chance=g.galatron_chance,
-        galatron_cooldown_s=g.galatron_cooldown_s,
         galatron_channels=[c.channel_id for c in ga_channels],
-        galatron_history=[
-            HistoryEntry(h.member_id, int(_to_epoch(h.occurred_at))) for h in ga_history
+        galatron_attempts=[
+            AttemptData(a.member_id, _to_epoch(a.occurred_at), a.won) for a in ga_attempts
         ],
-        galatron_members=[
-            MemberStat(
-                m.member_id,
-                int(_to_epoch(m.last_used)) if m.last_used is not None else None,
-                m.total_times_used,
-            )
-            for m in ga_members
+        galatron_cooldowns=[
+            PeriodData(_to_epoch(c.valid_from), c.cooldown_s) for c in ga_cooldowns
         ],
+        galatron_chances=[PeriodData(_to_epoch(c.valid_from), c.chance) for c in ga_chances],
         trivia_channels=[
             TriviaChannelData(
                 tc.channel_id, tc.list_name, tc.schedule, tc.response,
@@ -555,16 +516,17 @@ async def load_state() -> LoadedState:
         lfg_channels = (await s.execute(select(LfgChannelRow))).scalars().all()
         lfg_channel_roles = (await s.execute(select(LfgChannelRoleRow))).scalars().all()
         ga_channels = (await s.execute(select(GalatronChannelRow))).scalars().all()
-        ga_history = (
+        ga_attempts = (
             await s.execute(
-                select(GalatronHistoryRow).order_by(
-                    GalatronHistoryRow.guild_id,
-                    GalatronHistoryRow.occurred_at,
-                    GalatronHistoryRow.id,
+                select(GalatronAttemptRow).order_by(
+                    GalatronAttemptRow.guild_id,
+                    GalatronAttemptRow.occurred_at,
+                    GalatronAttemptRow.id,
                 )
             )
         ).scalars().all()
-        ga_members = (await s.execute(select(GalatronMemberRow))).scalars().all()
+        ga_cooldowns = (await s.execute(select(GalatronCooldownRow))).scalars().all()
+        ga_chances = (await s.execute(select(GalatronChanceRow))).scalars().all()
         tr_channels = (await s.execute(select(TriviaChannelRow))).scalars().all()
         mc_channels = (await s.execute(select(MinecraftStatusChannelRow))).scalars().all()
         tr_lists = (await s.execute(select(TriviaListRow))).scalars().all()
@@ -590,12 +552,15 @@ async def load_state() -> LoadedState:
     ga_chan_by_g: dict[int, list] = defaultdict(list)
     for c in ga_channels:
         ga_chan_by_g[c.guild_id].append(c)
-    ga_hist_by_g: dict[int, list] = defaultdict(list)
-    for h in ga_history:
-        ga_hist_by_g[h.guild_id].append(h)
-    ga_mem_by_g: dict[int, list] = defaultdict(list)
-    for m in ga_members:
-        ga_mem_by_g[m.guild_id].append(m)
+    ga_att_by_g: dict[int, list] = defaultdict(list)
+    for a in ga_attempts:
+        ga_att_by_g[a.guild_id].append(a)
+    ga_cd_by_g: dict[int, list] = defaultdict(list)
+    for c in ga_cooldowns:
+        ga_cd_by_g[c.guild_id].append(c)
+    ga_ch_by_g: dict[int, list] = defaultdict(list)
+    for c in ga_chances:
+        ga_ch_by_g[c.guild_id].append(c)
     tr_chan_by_g: dict[int, list] = defaultdict(list)
     for tc in tr_channels:
         tr_chan_by_g[tc.guild_id].append(tc)
@@ -616,8 +581,9 @@ async def load_state() -> LoadedState:
             lfg_chan_by_g.get(g.guild_id, []),
             lfg_roles_by_g.get(g.guild_id, []),
             ga_chan_by_g.get(g.guild_id, []),
-            ga_hist_by_g.get(g.guild_id, []),
-            ga_mem_by_g.get(g.guild_id, []),
+            ga_att_by_g.get(g.guild_id, []),
+            ga_cd_by_g.get(g.guild_id, []),
+            ga_ch_by_g.get(g.guild_id, []),
             tr_chan_by_g.get(g.guild_id, []),
             mc_chan_by_g.get(g.guild_id, []),
         )
@@ -657,16 +623,21 @@ async def load_guild_state(
                 select(GalatronChannelRow).where(GalatronChannelRow.guild_id == guild_id)
             )
         ).scalars().all()
-        ga_history = (
+        ga_attempts = (
             await s.execute(
-                select(GalatronHistoryRow)
-                .where(GalatronHistoryRow.guild_id == guild_id)
-                .order_by(GalatronHistoryRow.occurred_at, GalatronHistoryRow.id)
+                select(GalatronAttemptRow)
+                .where(GalatronAttemptRow.guild_id == guild_id)
+                .order_by(GalatronAttemptRow.occurred_at, GalatronAttemptRow.id)
             )
         ).scalars().all()
-        ga_members = (
+        ga_cooldowns = (
             await s.execute(
-                select(GalatronMemberRow).where(GalatronMemberRow.guild_id == guild_id)
+                select(GalatronCooldownRow).where(GalatronCooldownRow.guild_id == guild_id)
+            )
+        ).scalars().all()
+        ga_chances = (
+            await s.execute(
+                select(GalatronChanceRow).where(GalatronChanceRow.guild_id == guild_id)
             )
         ).scalars().all()
         tr_channels = (
@@ -692,6 +663,6 @@ async def load_guild_state(
 
     gs = _build_guild_state(
         g, host_roles, lfg_channels, lfg_channel_roles,
-        ga_channels, ga_history, ga_members, tr_channels, mc_channels,
+        ga_channels, ga_attempts, ga_cooldowns, ga_chances, tr_channels, mc_channels,
     )
     return gs, _build_lists(tr_lists, tr_questions)

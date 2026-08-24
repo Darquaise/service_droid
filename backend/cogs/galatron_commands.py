@@ -1,8 +1,8 @@
 import asyncio
 import discord
 from discord.ext import commands
-import math
 import random
+from typing import Iterable
 from datetime import timedelta
 
 from classes import (
@@ -11,8 +11,40 @@ from classes import (
 from classes.galatron_leaderboard_view import PRIME_DELAY
 
 
-def binom_p(n: int, p: float, k: int) -> float:
-    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+def binomial_pmf(n: int, p: float, k_max: int) -> list[float]:
+    """P(exactly k wins) for k = 0…k_max out of n attempts at chance p, built from
+    P(k-1) so no huge binomial coefficient is ever materialised."""
+    top = min(n, k_max)
+    if p <= 0:
+        return [1.0] + [0.0] * top
+    if p >= 1:
+        return [0.0] * top + ([1.0] if n <= k_max else [0.0])
+    pmf = [(1 - p) ** n]
+    for k in range(1, top + 1):
+        pmf.append(pmf[-1] * (n - k + 1) / k * p / (1 - p))
+    return pmf
+
+
+def win_count_pmf(groups: Iterable[tuple[float, int]], k_max: int) -> list[float]:
+    """P(exactly k wins) for k = 0…k_max over attempts made at differing chances.
+
+    Each group is ``(chance, attempts)``; with a single group this is the plain binomial
+    distribution, with several it is their convolution (Poisson binomial)."""
+    pmf = [1.0]
+    for p, n in groups:
+        if n <= 0:
+            continue
+        group = binomial_pmf(n, p, k_max)
+        combined = [0.0] * (min(len(pmf) + len(group) - 2, k_max) + 1)
+        for i, left in enumerate(pmf):
+            if left == 0.0:
+                continue
+            for j, right in enumerate(group):
+                if i + j > k_max:
+                    break
+                combined[i + j] += left * right
+        pmf = combined
+    return pmf
 
 
 class TextGenerator:
@@ -200,46 +232,6 @@ class TextGenerator:
         ]
         return random.choice(texts)
 
-    @staticmethod
-    def title_decree() -> str:
-        titles = [
-            "Decree of the Galactic Custodian",
-            "Mandate of the Outer Council",
-            "Override from the Shroud",
-            "Custodian Reallocation Order",
-            "Imperial Edict — Artifact Reassignment",
-            "Curator Intervention",
-        ]
-        return random.choice(titles)
-
-    @staticmethod
-    def admin_transfer(new_mention: str, old_mention: str | None) -> str:
-        if old_mention:
-            texts = [
-                f"A coded signal pierces every subspace channel — its cipher older than any current empire. The Galatron is torn from {old_mention} and pressed into the hands of {new_mention}.",
-                f"The Custodian speaks. Reality is overruled: {old_mention} is severed from the artifact, and {new_mention} becomes its new vessel.",
-                f"Beyond the senate, beyond the council, an unseen authority moves a piece on the board. {old_mention} is dispossessed; {new_mention} now carries the Galatron.",
-                f"An edict descends through the L-Gate networks. No vote was cast, no war was fought — yet {old_mention} loses the Galatron, and {new_mention} is named its bearer.",
-                f"The Shroud ripples with foreign intent. {old_mention}'s claim is unwoven from the timeline; {new_mention}'s thread is bound to the artifact in its place.",
-            ]
-        else:
-            texts = [
-                f"A directive descends from beyond the galactic frontier. The unbound Galatron is forcibly tethered to {new_mention} by powers that answer to no senate.",
-                f"The Custodian's voice resonates through every relay: the artifact shall drift no longer. {new_mention} is its bearer, by decree.",
-                f"From outside known space, a higher authority intervenes. The Galatron, masterless until now, is bound to {new_mention}.",
-                f"An ancient protocol activates without warning. The Galatron's coordinates collapse onto {new_mention}, sealing the appointment.",
-            ]
-        return random.choice(texts)
-
-    @staticmethod
-    def admin_transfer_same(owner_mention: str) -> str:
-        texts = [
-            f"The Custodian's gaze falls on {owner_mention} — and finds them already bound to the Galatron. The decree dissolves without effect.",
-            f"Reality has been pre-arranged. {owner_mention} already carries the Galatron; the intervention only confirms what is.",
-            f"The edict echoes through empty subspace. {owner_mention} is the bearer, was the bearer, remains the bearer.",
-        ]
-        return random.choice(texts)
-
 
 class GalatronCog(commands.Cog):
 
@@ -284,8 +276,6 @@ class GalatronCog(commands.Cog):
                 ephemeral=True,
             )
 
-        await ctx.g.galatron_register_attempt(ctx.author)
-
         old_owner = ctx.galatron.current_owner
         roll = random.random()
 
@@ -306,7 +296,7 @@ class GalatronCog(commands.Cog):
                     ephemeral=True,
                 )
 
-            await ctx.g.galatron_add_win(ctx.author)
+            await ctx.g.galatron_record_attempt(ctx.author, won=True)
 
             flavour = TextGenerator.success_text_main()
             bearer_line = TextGenerator.success_bearer_line()
@@ -320,6 +310,8 @@ class GalatronCog(commands.Cog):
                 ephemeral=True,
             )
         else:
+            await ctx.g.galatron_record_attempt(ctx.author, won=False)
+
             flavour = TextGenerator.fail_text_main()
             if old_owner:
                 owner_line = " " + TextGenerator.fail_owner_bound(old_owner.mention)
@@ -389,7 +381,7 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        leaderboard = sorted(await ctx.g.galatron_history.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
+        leaderboard = sorted(await ctx.g.galatron_log.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
 
         if not leaderboard:
             return await ctx.respond(TextGenerator.no_leaderboard_entries())
@@ -435,11 +427,11 @@ class GalatronCog(commands.Cog):
 
         leaderboard_by_id = {
             int(member.id): (member, total_duration, total_got)
-            for member, total_duration, total_got in await ctx.g.galatron_history.calculate_leaderboard()
+            for member, total_duration, total_got in await ctx.g.galatron_log.calculate_leaderboard()
         }
 
         stats: list[tuple[discord.Member, int, int, timedelta]] = []
-        for member_id, total_uses in ctx.g.galatron_total_times_used.items():
+        for member_id, total_uses in ctx.g.galatron_log.totals.items():
             if member_id in leaderboard_by_id.keys():
                 member, total_duration, total_got = leaderboard_by_id[member_id]
             else:
@@ -465,20 +457,26 @@ class GalatronCog(commands.Cog):
                 ephemeral=True
             )
 
-        if not len(ctx.g.galatron_total_times_used) > 0:
+        log = ctx.g.galatron_log
+        if log.total_attempts == 0:
             return await ctx.respond(
                 TextGenerator.no_trys_yet(),
             )
 
-        individual_users = len(ctx.g.galatron_total_times_used)
-        total_uses = sum(ctx.g.galatron_total_times_used.values())
-        total_received = len(ctx.g.galatron_history.history)
-        p = ctx.g.galatron_chance
+        individual_users = len(log.totals)
+        total_uses = log.total_attempts
+        total_received = len(log.wins)
+
+        # Each attempt counts with the chance that was in force when it was made, so a
+        # chance that changed over time doesn't distort the expectation.
+        groups = sorted(ctx.g.galatron_attempts_by_chance().items())
+        expected = sum(p * n for p, n in groups)
+
+        pmf = win_count_pmf(groups, total_received)
+        luck_percentile = 1 - sum(pmf[:total_received])  # P(at least this many wins)
+        low_tail = sum(pmf[:total_received + 1])  # P(at most this many wins)
 
         empirical_rate = total_received / total_uses * 100
-        expected = p * total_uses
-        luck_percentile = 1 - sum(binom_p(total_uses, p, k) for k in range(total_received))
-        low_tail = 1 - luck_percentile + binom_p(total_uses, p, total_received)
 
         if expected > 0:
             luck_factor_text = f"{total_received / expected:.2f}× the average"
@@ -488,16 +486,18 @@ class GalatronCog(commands.Cog):
         description = (
             f"**Total uses:** {total_uses} (by {individual_users} individuals)\n"
             f"**Total received:** {total_received} ({empirical_rate:.2f}%)\n"
-            f"**Server chance:** {p * 100}%\n"
+            f"**Server chance:** {ctx.g.galatron_chance * 100}%\n"
+        )
+        if len(groups) > 1:
+            spread = ", ".join(f"{p * 100:g}% ({n}×)" for p, n in groups)
+            description += f"**Chances these attempts were made under:** {spread}\n"
+        description += (
             f"**Expected:** {expected:.2f} ({luck_factor_text})\n"
             f"**P(at least this lucky):** {luck_percentile * 100:.2f}% "
         )
 
         if min(luck_percentile, low_tail) < 0.01:
-            description += (
-                "\n\n-# This result is statistically extreme under the current server chance "
-                "- the chance may have been different during past attempts."
-            )
+            description += "\n\n-# This result is statistically extreme."
 
         embed = discord.Embed(title="Galatron Stats Total", description=description)
 

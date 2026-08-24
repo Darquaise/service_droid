@@ -17,16 +17,18 @@ class LfgChannelData:
 
 
 @dataclass(slots=True)
-class HistoryEntry:
+class AttemptData:
     member_id: int
-    occurred_at: int  # epoch seconds
+    occurred_at: float  # epoch seconds
+    won: bool
 
 
 @dataclass(slots=True)
-class MemberStat:
-    member_id: int
-    last_used: int | None  # epoch seconds
-    total: int
+class PeriodData:
+    """one entry of a setting timeline: the value in force from ``valid_from`` on"""
+
+    valid_from: float  # epoch seconds
+    value: float
 
 
 @dataclass(slots=True)
@@ -62,11 +64,10 @@ class GuildState:
     host_roles: list[HostRoleData] = field(default_factory=list)
     lfg_channels: list[LfgChannelData] = field(default_factory=list)
     galatron_role_id: int | None = None
-    galatron_chance: float = 0.005
-    galatron_cooldown_s: int = 86_400
     galatron_channels: list[int] = field(default_factory=list)
-    galatron_history: list[HistoryEntry] = field(default_factory=list)
-    galatron_members: list[MemberStat] = field(default_factory=list)
+    galatron_attempts: list[AttemptData] = field(default_factory=list)
+    galatron_cooldowns: list[PeriodData] = field(default_factory=list)
+    galatron_chances: list[PeriodData] = field(default_factory=list)
     trivia_channels: list[TriviaChannelData] = field(default_factory=list)
     minecraft_channels: list[MinecraftChannelData] = field(default_factory=list)
 

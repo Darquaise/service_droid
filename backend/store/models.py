@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Double,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     PrimaryKeyConstraint,
     Text,
@@ -27,8 +29,6 @@ class GuildRow(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     galatron_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    galatron_chance: Mapped[float] = mapped_column(Double, nullable=False, server_default="0.005")
-    galatron_cooldown_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="86400")
 
 
 class LfgHostRoleRow(Base):
@@ -91,10 +91,10 @@ class GalatronChannelRow(Base):
     __table_args__ = (PrimaryKeyConstraint("guild_id", "channel_id"),)
 
 
-class GalatronHistoryRow(Base):
-    """Galatron ownership history (append-only)"""
+class GalatronAttemptRow(Base):
+    """every single Galatron attempt (append-only); a win is an attempt with ``won``"""
 
-    __tablename__ = "galatron_history"
+    __tablename__ = "galatron_attempt"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     guild_id: Mapped[int] = mapped_column(
@@ -102,21 +102,40 @@ class GalatronHistoryRow(Base):
     )
     member_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    won: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+
+    __table_args__ = (
+        Index("ix_galatron_attempt_guild_time", "guild_id", "occurred_at"),
+        Index("ix_galatron_attempt_guild_member", "guild_id", "member_id"),
+    )
 
 
-class GalatronMemberRow(Base):
-    """user of Galatron with their last usage for cooldown"""
+class GalatronCooldownRow(Base):
+    """cooldown between two attempts, as a timeline: each row starts a new period"""
 
-    __tablename__ = "galatron_member"
+    __tablename__ = "galatron_cooldown"
 
     guild_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
     )
-    member_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    total_times_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cooldown_s: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    __table_args__ = (PrimaryKeyConstraint("guild_id", "member_id"),)
+    __table_args__ = (PrimaryKeyConstraint("guild_id", "valid_from"),)
+
+
+class GalatronChanceRow(Base):
+    """win chance per attempt, as a timeline: each row starts a new period"""
+
+    __tablename__ = "galatron_chance"
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
+    )
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    chance: Mapped[float] = mapped_column(Double, nullable=False)
+
+    __table_args__ = (PrimaryKeyConstraint("guild_id", "valid_from"),)
 
 
 class MinecraftStatusChannelRow(Base):
