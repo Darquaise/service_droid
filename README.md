@@ -34,12 +34,12 @@ On the maintained server this is automatic — pushing to `main` (prod) or `dev`
 
 What the bot needs in the channel a feature runs in:
 
-| Feature          | Required                                             |
-|------------------|------------------------------------------------------|
-| LFG              | View Channel, Send Messages                          |
-| Galatron         | View Channel, Send Messages, Embed Links             |
-| Trivia           | View Channel, Send Messages, Embed Links             |
-| Minecraft status | View Channel, Manage Channels                        |
+| Feature          | Required                                               |
+|------------------|--------------------------------------------------------|
+| LFG              | View Channel, Send Messages                            |
+| Galatron         | View Channel, Send Messages, Embed Links, Attach Files |
+| Trivia           | View Channel, Send Messages, Embed Links               |
+| Minecraft status | View Channel, Manage Channels                          |
 
 Handing out the Galatron role additionally needs **Manage Roles**.
 That role has to sit below the bot's highest role, and it can be neither `@everyone` nor a role managed by an integration.
@@ -53,6 +53,7 @@ When a permission is missing at the moment the bot posts:
   After three consecutive failed attempts the binding is dropped and has to be set up again once the permission is back.
 - **Member-triggered features** (LFG, Galatron) answer the member privately and notify the owner.
   A Galatron attempt that cannot be completed leaves the member's cooldown untouched.
+  A Galatron win without **Attach Files** is still announced, just without the artwork.
   An `!lfg` that cannot be answered is marked with ❌ and removed five seconds later, as far as the bot may delete messages.
 
 Notifications reach the server owner as a direct message, so the owner has to accept DMs from the server.
@@ -84,6 +85,19 @@ A community claim-the-artifact game: members roll for a server-wide role, with c
 
 Every attempt is recorded individually with its timestamp.
 Cooldown and chance are stored the same way, so a change applies from the moment it is made and past attempts stay attributable to the settings that were in force back then.
+
+**How an attempt is answered.**
+A failed attempt puts a single quiet line in the channel, while the full write-up goes only to whoever made it, so the hunt doesn't flood the channel.
+A win is announced in the channel in full, with the artwork attached, since it is the rare event and everyone is meant to see it.
+
+The Galatron speaks in one of three voices:
+an excavation report, a psionic account, or a session of the Galactic Senate.
+A voice holds for a whole reign:
+every attempt, rejection and status report uses it until the next win, which is still told in the old voice and then rolls a new one.
+Whether somebody currently holds the artifact changes the framing as well:
+with a bearer in place an attempt is a claim against them, without one it is a dig.
+On top of that a message may note one thing about the attempt's history (a first win, a record tenure broken, a long streak without success).
+Cases that come up often are mentioned only occasionally, so they don't turn into a catchphrase.
 
 | Command                                   | Description                                                         |
 |-------------------------------------------|---------------------------------------------------------------------|

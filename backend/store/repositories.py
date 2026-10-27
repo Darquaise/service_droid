@@ -74,6 +74,9 @@ class GuildRepo(_Repo):
     async def set_galatron_role(self, guild_id: int, role_id: int | None) -> None:
         await self._update_guild(guild_id, galatron_role_id=role_id)
 
+    async def set_galatron_register(self, guild_id: int, register: str) -> None:
+        await self._update_guild(guild_id, galatron_register=register)
+
     async def _update_guild(self, guild_id: int, **values: Any) -> None:
         async with self._session() as s, s.begin():
             await s.execute(update(GuildRow).where(GuildRow.guild_id == guild_id).values(**values))
@@ -477,6 +480,7 @@ def _build_guild_state(
             LfgChannelData(c.channel_id, roles_by_c.get(c.channel_id, [])) for c in lfg_channels
         ],
         galatron_role_id=g.galatron_role_id,
+        galatron_register=g.galatron_register,
         galatron_channels=[c.channel_id for c in ga_channels],
         galatron_attempts=[
             AttemptData(a.member_id, _to_epoch(a.occurred_at), a.won) for a in ga_attempts

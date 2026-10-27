@@ -13,6 +13,7 @@ PERM_LABELS: dict[str, str] = {
     "view_channel": "View Channel",
     "send_messages": "Send Messages",
     "embed_links": "Embed Links",
+    "attach_files": "Attach Files",
     "manage_channels": "Manage Channels",
     "manage_roles": "Manage Roles",
     "mention_everyone": "Mention @everyone, @here and All Roles",

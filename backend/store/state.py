@@ -64,6 +64,7 @@ class GuildState:
     host_roles: list[HostRoleData] = field(default_factory=list)
     lfg_channels: list[LfgChannelData] = field(default_factory=list)
     galatron_role_id: int | None = None
+    galatron_register: str | None = None
     galatron_channels: list[int] = field(default_factory=list)
     galatron_attempts: list[AttemptData] = field(default_factory=list)
     galatron_cooldowns: list[PeriodData] = field(default_factory=list)

@@ -48,7 +48,7 @@ class GalatronSettingsCog(discord.Cog):
                 ephemeral=True
             )
 
-        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links")
+        missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links", "attach_files")
         if missing:
             return await ctx.respond(format_missing_perms(channel, missing), ephemeral=True)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from typing import TYPE_CHECKING
+import random
 import discord
 from datetime import timedelta, datetime
 
@@ -9,6 +10,7 @@ from store import galatron_repo, guild_repo, lfg_repo, minecraft_repo, trivia_re
 
 from .base.guildbase import GuildBase
 from .galatron import DEFAULT_CHANCE, DEFAULT_COOLDOWN_S, GalatronAttempt, GalatronLog
+from .galatron_text import Register, next_register
 from .generics import SettingTimeline
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
 from .minecraft import MinecraftStatusConfig
@@ -24,7 +26,7 @@ class Guild(GuildBase):
     __slots__ = (
         "host_roles", "lfg_channels",
         "galatron_role", "galatron_channels", "galatron_log",
-        "galatron_cooldowns", "galatron_chances",
+        "galatron_cooldowns", "galatron_chances", "galatron_register",
         "trivia_channels", "minecraft_channels",
     )
 
@@ -32,6 +34,7 @@ class Guild(GuildBase):
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
             galatron_role: discord.Role | None, galatron_channels: list[discord.TextChannel],
             galatron_log: GalatronLog, galatron_cooldowns: SettingTimeline, galatron_chances: SettingTimeline,
+            galatron_register: Register,
             trivia_channels: dict[int, TriviaChannelConfig], minecraft_channels: dict[int, MinecraftStatusConfig],
     ):
         super().__init__(guild)
@@ -46,6 +49,7 @@ class Guild(GuildBase):
         self.galatron_log = galatron_log
         self.galatron_cooldowns = galatron_cooldowns
         self.galatron_chances = galatron_chances
+        self.galatron_register = galatron_register
 
         # trivia stuff
         self.trivia_channels = trivia_channels
@@ -171,6 +175,9 @@ class Guild(GuildBase):
         occurred_at = datetime.now().replace(microsecond=0)
         self.galatron_log.add(member.id, occurred_at, won)
         await galatron_repo.add_attempt(self.id, member.id, occurred_at.timestamp(), won)
+        if won:
+            self.galatron_register = next_register(self.galatron_register)
+            await guild_repo.set_galatron_register(self.id, self.galatron_register)
 
     async def galatron_reset(self) -> None:
         self.galatron_log = GalatronLog(self.guild)
@@ -203,7 +210,8 @@ class Guild(GuildBase):
         if gs is None:
             return cls(
                 guild, {}, {}, None, [], GalatronLog(guild),
-                SettingTimeline(DEFAULT_COOLDOWN_S), SettingTimeline(DEFAULT_CHANCE), {}, {},
+                SettingTimeline(DEFAULT_COOLDOWN_S), SettingTimeline(DEFAULT_CHANCE),
+                random.choice(list(Register)), {}, {},
             )
 
         # lfg stuff
@@ -240,6 +248,7 @@ class Guild(GuildBase):
             DEFAULT_CHANCE,
             [(datetime.fromtimestamp(p.valid_from), p.value) for p in gs.galatron_chances],
         )
+        galatron_register = Register(gs.galatron_register) if gs.galatron_register else random.choice(list(Register))
 
         # trivia stuff
         trivia_channels = {
@@ -258,5 +267,5 @@ class Guild(GuildBase):
 
         return cls(
             guild, host_roles, lfg_channels, galatron_role, galatron_channels, galatron_log, galatron_cooldowns,
-            galatron_chances, trivia_channels, minecraft_channels,
+            galatron_chances, galatron_register, trivia_channels, minecraft_channels,
         )

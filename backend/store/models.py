@@ -13,6 +13,7 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -29,6 +30,11 @@ class GuildRow(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     galatron_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Rolled per row by the database, so every guild starts in a random voice.
+    galatron_register: Mapped[str] = mapped_column(
+        Text, nullable=False,
+        server_default=text("((ARRAY['survey', 'shroud', 'court'])[floor(random() * 3)::int + 1])"),
+    )
 
 
 class LfgHostRoleRow(Base):
