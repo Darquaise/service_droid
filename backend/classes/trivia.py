@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 import discord
 from croniter import croniter
 
 from store import trivia_repo
 
+from . import clock
 from .trivia_modes import MODE_TIMED, ORDER_RANDOM
 
 if TYPE_CHECKING:
@@ -67,7 +68,7 @@ class TriviaChannelConfig:
         return self._next_index
 
     def next_fire(self, now: datetime | None = None) -> datetime:
-        base = now if now is not None else datetime.now(timezone.utc)
+        base = now if now is not None else clock.now_utc()
         return croniter(self.schedule, base).get_next(datetime)
 
     def next_fire_discord(self) -> str:

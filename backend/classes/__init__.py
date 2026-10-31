@@ -1,3 +1,4 @@
+from . import clock
 from .settings import Settings
 from .context import Context, ApplicationContext, Interaction, Message
 from .bot import ServiceDroid

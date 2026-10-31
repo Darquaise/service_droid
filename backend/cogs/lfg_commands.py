@@ -5,7 +5,7 @@ from discord.ext import commands
 from datetime import datetime
 
 from classes import (
-    ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option, missing_channel_perms, notify_owner
+    clock, ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option, missing_channel_perms, notify_owner
 )
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class LFGCog(discord.Cog):
         if member.id in self.cooldowns[member.guild.id]:
             return self.cooldowns[member.guild.id][member.id] + cooldown
         else:
-            return datetime.now()
+            return clock.now()
 
     @staticmethod
     async def reject_message(ctx: Context, linger: int = 5) -> None:
@@ -51,7 +51,7 @@ class LFGCog(discord.Cog):
         if member.guild.id not in self.cooldowns:
             self.cooldowns[member.guild.id] = {}
 
-        self.cooldowns[member.guild.id][member.id] = datetime.now()
+        self.cooldowns[member.guild.id][member.id] = clock.now()
 
     @commands.command(name="lfg", aliases=["lgf"])
     async def lfg(self, ctx: Context, *, text: str | None = None):
@@ -68,7 +68,7 @@ class LFGCog(discord.Cog):
             return
 
         # check for cooldown and return if still on cooldown
-        if next_use > datetime.now():
+        if next_use > clock.now():
             await ctx.reply(
                 content=f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
                 delete_after=10
@@ -122,7 +122,7 @@ class LFGCog(discord.Cog):
             )
 
         # check for cooldown and return if still on cooldown
-        if next_use > datetime.now():
+        if next_use > clock.now():
             return await ctx.respond(
                 f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
                 ephemeral=True

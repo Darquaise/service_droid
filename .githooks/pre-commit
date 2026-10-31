@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Pre-commit: the fast checks when the commit touches the bot — ruff, the clock rule, the offline
+# harness self-tests. The live e2e suite runs in pre-push (or by hand: scripts/e2e.sh).
+# Activate once per clone:   git config core.hooksPath .githooks
+# Skip for a single commit:  git commit --no-verify
+#
+# Note: the checks run against the working tree, not against what is staged.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMRD)"
+if ! printf '%s\n' "$staged" | grep -Eq '^(backend/|scripts/e2e\.sh$|compose\.e2e\.yml$|\.githooks/)'; then
+  exit 0
+fi
+
+fail() {
+  echo "✗ $1"
+  echo
+  echo "To commit anyway:  git commit --no-verify"
+  exit 1
+}
+
+echo "▶ pre-commit: ruff"
+( cd "$ROOT/backend" && uv run ruff check ) || fail "ruff found problems."
+
+echo "▶ pre-commit: clock rule"
+# bot code reads the time through classes/clock.py, otherwise the e2e tests can't move it
+if hits="$(grep -rnE 'datetime\.(now|utcnow)\(' backend/classes backend/cogs backend/converters backend/store \
+    --include='*.py' | grep -v '^backend/classes/clock\.py:')"; then
+  echo "$hits"
+  fail "use classes/clock.py (clock.now() / clock.now_utc()) instead of datetime.now()."
+fi
+
+echo "▶ pre-commit: offline harness tests"
+( cd "$ROOT/backend" && uv run pytest e2e -m offline -q -p no:warnings ) || fail "offline tests failed."

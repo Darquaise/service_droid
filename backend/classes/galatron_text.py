@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import ClassVar, Iterable, TYPE_CHECKING
 
+from . import clock
+
 if TYPE_CHECKING:
     import discord
     from .galatron import GalatronLog
@@ -451,7 +453,7 @@ class AttemptContext:
 
 
 def build_context(log: "GalatronLog", member_id: int, now: datetime | None = None) -> AttemptContext:
-    now = now or datetime.now()
+    now = now or clock.now()
     attempts = log.attempts
     wins = log.wins
 

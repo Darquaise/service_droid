@@ -8,6 +8,7 @@ from datetime import timedelta, datetime
 
 from store import galatron_repo, guild_repo, lfg_repo, minecraft_repo, trivia_repo
 
+from . import clock
 from .base.guildbase import GuildBase
 from .galatron import DEFAULT_CHANCE, DEFAULT_COOLDOWN_S, GalatronAttempt, GalatronLog
 from .galatron_text import Register, next_register
@@ -121,12 +122,12 @@ class Guild(GuildBase):
         await guild_repo.set_galatron_role(self.id, role.id if role else None)
 
     async def set_galatron_chance(self, chance: float) -> None:
-        now = datetime.now()
+        now = clock.now()
         self.galatron_chances.add(chance, now)
         await galatron_repo.add_chance(self.id, chance, now.timestamp())
 
     async def set_galatron_cooldown(self, cooldown: timedelta) -> None:
-        now = datetime.now()
+        now = clock.now()
         seconds = int(cooldown.total_seconds())
         self.galatron_cooldowns.add(seconds, now)
         await galatron_repo.add_cooldown(self.id, seconds, now.timestamp())
@@ -172,7 +173,7 @@ class Guild(GuildBase):
         return counts
 
     async def galatron_record_attempt(self, member: discord.Member, won: bool) -> None:
-        occurred_at = datetime.now().replace(microsecond=0)
+        occurred_at = clock.now().replace(microsecond=0)
         self.galatron_log.add(member.id, occurred_at, won)
         await galatron_repo.add_attempt(self.id, member.id, occurred_at.timestamp(), won)
         if won:

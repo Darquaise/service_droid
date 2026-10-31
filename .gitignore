@@ -9,10 +9,12 @@
 **/__pycache__/
 **/*.pyc
 **/.ruff_cache/
+**/.pytest_cache/
 
 # Secrets
 *.env
 !.env.example
+/.env.e2e
 
 # Runtime data
 backend/guilds.json

@@ -1,3 +1,4 @@
+import asyncio
 from typing import TYPE_CHECKING
 
 import discord
@@ -25,6 +26,8 @@ class ServiceDroid(commands.Bot):
         self.trivia_scheduler: "TriviaScheduler | None" = None
         # set by MinecraftCog once the updater is up
         self.minecraft_updater: "MinecraftStatusUpdater | None" = None
+        # set by cogs/startup.py at the very end of startup (the e2e harness waits for it)
+        self.startup_complete = asyncio.Event()
 
     async def close(self) -> None:
         if self.change_listener is not None:

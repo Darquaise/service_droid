@@ -93,3 +93,4 @@ class StartupCog(commands.Cog):
         await self.bot.change_presence(activity=activity)
 
         logger.info("startup finished")
+        self.bot.startup_complete.set()

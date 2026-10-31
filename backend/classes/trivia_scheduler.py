@@ -3,12 +3,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 import discord
 
 from store import trivia_repo
 
+from . import clock
 from .permissions import DISSOLVE_AFTER_PERM_FAILS, missing_channel_perms, notify_owner
 from .trivia import TriviaChannelConfig, TriviaHandler, TriviaQuestion
 from .trivia_modes import (
@@ -115,7 +115,7 @@ class TriviaScheduler:
             await self._deliver_pending(channel_id, config)
 
             while True:
-                now = datetime.now(timezone.utc)
+                now = clock.now_utc()
                 try:
                     next_fire = config.next_fire(now)
                 except Exception as e:
@@ -140,7 +140,7 @@ class TriviaScheduler:
         if pending is None:
             return
 
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = clock.now_utc().timestamp()
         remaining = pending["due_at"] - now_ts
 
         if remaining <= 0:
@@ -246,7 +246,7 @@ class TriviaScheduler:
         await channel.send(embed=embed)
         config.perm_fail_count = 0
 
-        due_at = datetime.now(timezone.utc).timestamp() + config.response
+        due_at = clock.now_utc().timestamp() + config.response
         config.set_pending(due_at, question, wording)
         await trivia_repo.upsert_pending(
             channel.id, due_at, question.title, wording, question.answer, question.answer_context

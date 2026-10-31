@@ -1,0 +1,23 @@
+# THROWAWAY DATABASE FOR THE E2E TESTS ONLY — managed by scripts/e2e.sh.
+#
+# Separate compose project and port from compose.dev.yml, so a test run never touches the local dev
+# DB, and no volume: the data lives in tmpfs and is gone when the container stops.
+
+name: service-droid-e2e
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: service_droid_e2e
+      POSTGRES_PASSWORD: service_droid_e2e
+      POSTGRES_DB: service_droid_e2e
+    ports:
+      - "127.0.0.1:${E2E_DB_PORT:-5434}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U service_droid_e2e -d service_droid_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

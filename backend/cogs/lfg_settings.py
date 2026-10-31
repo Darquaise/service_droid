@@ -9,7 +9,7 @@ from converters import TIME_UNITS
 
 
 def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
-    text = f"**LFG Channels**\n"
+    text = "**LFG Channels**\n"
     if len(ctx.g.lfg_channels.values()) == 0:
         text += "None set"
     else:

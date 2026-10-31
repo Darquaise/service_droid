@@ -9,7 +9,7 @@ from converters.time import td2text_long, TIME_UNITS
 
 
 def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
-    text = f"**Galatron Channels**\n"
+    text = "**Galatron Channels**\n"
     if len(ctx.g.galatron_channels) == 0:
         text += "None set"
     else:

@@ -11,4 +11,6 @@
 backend/guilds.json
 backend/trivia
 backend/logs
+backend/e2e
+**/.pytest_cache
 *.md

@@ -5,6 +5,8 @@ from datetime import timedelta, datetime
 from typing import TYPE_CHECKING, Iterable
 import discord
 
+from . import clock
+
 if TYPE_CHECKING:
     from .context import ApplicationContext
 
@@ -29,7 +31,7 @@ class GalatronData:
             return None
 
         next_allowed = last_used + self._ctx.g.galatron_cooldown
-        return next_allowed if next_allowed > datetime.now() else None
+        return next_allowed if next_allowed > clock.now() else None
 
     @property
     def is_current_owner(self) -> bool:
@@ -113,7 +115,7 @@ class GalatronLog:
         wins = self.wins
         for x, attempt in enumerate(wins):
             member_id = attempt.member_id
-            end_time = wins[x + 1].occurred_at if len(wins) > x + 1 else datetime.now()
+            end_time = wins[x + 1].occurred_at if len(wins) > x + 1 else clock.now()
 
             if member_id not in member_times:
                 member = self.guild.get_member(member_id)
