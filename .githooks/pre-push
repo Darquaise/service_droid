@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Pre-push: the live e2e suite (scripts/e2e.sh, ~4 min) when the pushed commits touch the bot.
+# Pre-push: the live e2e suite (scripts/e2e.sh, ~4 min) when the pushed commits touch the bot — unless a full run
+# already passed on bit-identical code (.dev/e2e-passed, written by scripts/e2e.sh).
 # Activate once per clone:   git config core.hooksPath .githooks
 # Skip for a single push:    git push --no-verify
 set -euo pipefail
@@ -23,6 +24,12 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
   fi
 done
 [ "$relevant" -eq 1 ] || exit 0
+
+stamp="$ROOT/.dev/e2e-passed"
+if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$("$ROOT/scripts/e2e-fingerprint.sh")" ]; then
+  echo "▶ pre-push: e2e tests skipped — a full run already passed on identical code."
+  exit 0
+fi
 
 fail() {
   echo "✗ $1"

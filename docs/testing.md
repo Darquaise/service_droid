@@ -128,6 +128,11 @@ git config core.hooksPath .githooks
   `classes/clock.py`) and `pytest e2e -m offline`. It checks the working tree, not what is staged.
 - `.githooks/pre-push` (~4 min) — when the pushed commits touch `backend/` or the e2e files: `scripts/e2e.sh`, the full
   live suite. It aborts with a message when `.env.e2e` or Docker is missing, or while the local dev bot runs.
+  It is skipped when a full run already passed on bit-identical code: after a green `scripts/e2e.sh` without
+  arguments, the hash of `backend/`, `scripts/e2e.sh` and `compose.e2e.yml` (working tree, untracked files
+  included, ignored ones not — `scripts/e2e-fingerprint.sh`) is stored in `.dev/e2e-passed`, and the hook compares
+  against it. Any change to those files, a subset run (`-k …`) or a failed run leaves it stale, so the next push
+  runs the suite again. Typical case: merging `dev` into `main` without further changes.
 
 Skip once with `git commit --no-verify` / `git push --no-verify`.
 

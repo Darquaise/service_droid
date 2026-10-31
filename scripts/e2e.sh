@@ -9,6 +9,9 @@
 #          ./scripts/e2e.sh -k galatron     # a subset
 # Setup:   see docs/testing.md (test application, test guild, dummy bots, .env.e2e)
 #
+# After a full green run (no extra arguments) the code's fingerprint is stored in .dev/e2e-passed; the pre-push hook
+# skips its rerun when the code is still bit-identical (scripts/e2e-fingerprint.sh).
+#
 # Only one run per machine at a time (the bot token can only log in once, whichever checkout runs):
 # guarded by ~/.cache/service_droid/e2e.lock, which the tests verify (backend/e2e/harness/env.py).
 set -euo pipefail
@@ -65,6 +68,8 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
+FINGERPRINT="$("$ROOT/scripts/e2e-fingerprint.sh")"
+
 # --- database ------------------------------------------------------------------------------
 echo "▶ Throwaway database (Docker, port $E2E_DB_PORT)…"
 "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
@@ -84,6 +89,10 @@ set -e
 
 if [ "$code" -eq 0 ]; then
   echo "✓ e2e passed."
+  # only a full run counts, and only if the code did not change while it ran
+  if [ "$#" -eq 0 ] && [ "$("$ROOT/scripts/e2e-fingerprint.sh")" = "$FINGERPRINT" ]; then
+    echo "$FINGERPRINT" >"$RUN_DIR/e2e-passed"
+  fi
 else
   echo "✗ e2e failed (exit $code)."
 fi
