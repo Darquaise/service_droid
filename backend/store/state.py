@@ -67,7 +67,6 @@ class GuildState:
     galatron_register: str | None = None
     galatron_channels: list[int] = field(default_factory=list)
     galatron_attempts: list[AttemptData] = field(default_factory=list)
-    galatron_cooldowns: list[PeriodData] = field(default_factory=list)
     galatron_chances: list[PeriodData] = field(default_factory=list)
     trivia_channels: list[TriviaChannelData] = field(default_factory=list)
     minecraft_channels: list[MinecraftChannelData] = field(default_factory=list)

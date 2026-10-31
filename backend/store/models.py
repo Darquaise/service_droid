@@ -116,20 +116,6 @@ class GalatronAttemptRow(Base):
     )
 
 
-class GalatronCooldownRow(Base):
-    """cooldown between two attempts, as a timeline: each row starts a new period"""
-
-    __tablename__ = "galatron_cooldown"
-
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
-    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    cooldown_s: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    __table_args__ = (PrimaryKeyConstraint("guild_id", "valid_from"),)
-
-
 class GalatronChanceRow(Base):
     """win chance per attempt, as a timeline: each row starts a new period"""
 

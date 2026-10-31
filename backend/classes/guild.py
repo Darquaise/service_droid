@@ -4,13 +4,13 @@ from collections import Counter
 from typing import TYPE_CHECKING
 import random
 import discord
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 
 from store import galatron_repo, guild_repo, lfg_repo, minecraft_repo, trivia_repo
 
 from . import clock
 from .base.guildbase import GuildBase
-from .galatron import DEFAULT_CHANCE, DEFAULT_COOLDOWN_S, GalatronAttempt, GalatronLog
+from .galatron import DEFAULT_CHANCE, GalatronAttempt, GalatronLog
 from .galatron_text import Register, next_register
 from .generics import SettingTimeline
 from .lfg import LFGNotAllowed, LFGHost, LFGChannel
@@ -27,14 +27,14 @@ class Guild(GuildBase):
     __slots__ = (
         "host_roles", "lfg_channels",
         "galatron_role", "galatron_channels", "galatron_log",
-        "galatron_cooldowns", "galatron_chances", "galatron_register",
+        "galatron_chances", "galatron_register",
         "trivia_channels", "minecraft_channels",
     )
 
     def __init__(
             self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
             galatron_role: discord.Role | None, galatron_channels: list[discord.TextChannel],
-            galatron_log: GalatronLog, galatron_cooldowns: SettingTimeline, galatron_chances: SettingTimeline,
+            galatron_log: GalatronLog, galatron_chances: SettingTimeline,
             galatron_register: Register,
             trivia_channels: dict[int, TriviaChannelConfig], minecraft_channels: dict[int, MinecraftStatusConfig],
     ):
@@ -48,7 +48,6 @@ class Guild(GuildBase):
         self.galatron_role = galatron_role
         self.galatron_channels = galatron_channels
         self.galatron_log = galatron_log
-        self.galatron_cooldowns = galatron_cooldowns
         self.galatron_chances = galatron_chances
         self.galatron_register = galatron_register
 
@@ -110,10 +109,6 @@ class Guild(GuildBase):
 
     # Galatron
     @property
-    def galatron_cooldown(self) -> timedelta:
-        return timedelta(seconds=self.galatron_cooldowns.current)
-
-    @property
     def galatron_chance(self) -> float:
         return self.galatron_chances.current
 
@@ -122,39 +117,24 @@ class Guild(GuildBase):
         await guild_repo.set_galatron_role(self.id, role.id if role else None)
 
     async def set_galatron_chance(self, chance: float) -> None:
-        now = clock.now()
+        now = clock.now_utc()
         self.galatron_chances.add(chance, now)
         await galatron_repo.add_chance(self.id, chance, now.timestamp())
 
-    async def set_galatron_cooldown(self, cooldown: timedelta) -> None:
-        now = clock.now()
-        seconds = int(cooldown.total_seconds())
-        self.galatron_cooldowns.add(seconds, now)
-        await galatron_repo.add_cooldown(self.id, seconds, now.timestamp())
-
     async def ensure_galatron_timelines(self, joined_at: datetime) -> None:
-        """Give cooldown and chance a defined starting point. The bot cannot have had a
+        """Give the chance timeline a defined starting point. The bot cannot have had a
         setting before it joined, so a missing timeline starts at the join with the
         current value, and one reaching further back is pulled forward to it (that is
         how the values carried over by the schema migration get their real start)."""
-        await self._ensure_timeline_start(
-            self.galatron_cooldowns, joined_at,
-            galatron_repo.add_cooldown, galatron_repo.move_cooldown_start,
-        )
-        await self._ensure_timeline_start(
-            self.galatron_chances, joined_at,
-            galatron_repo.add_chance, galatron_repo.move_chance_start,
-        )
-
-    async def _ensure_timeline_start(self, timeline, joined_at, add, move) -> None:
+        timeline = self.galatron_chances
         start = timeline.start
         if start is None:
             value = timeline.current
             timeline.add(value, joined_at)
-            await add(self.id, value, joined_at.timestamp())
+            await galatron_repo.add_chance(self.id, value, joined_at.timestamp())
         elif start < joined_at:
             timeline.periods[0] = (joined_at, timeline.periods[0][1])
-            await move(self.id, start.timestamp(), joined_at.timestamp())
+            await galatron_repo.move_chance_start(self.id, start.timestamp(), joined_at.timestamp())
 
     async def add_galatron_channel(self, channel: discord.TextChannel) -> None:
         self.galatron_channels.append(channel)
@@ -173,7 +153,7 @@ class Guild(GuildBase):
         return counts
 
     async def galatron_record_attempt(self, member: discord.Member, won: bool) -> None:
-        occurred_at = clock.now().replace(microsecond=0)
+        occurred_at = clock.now_utc().replace(microsecond=0)
         self.galatron_log.add(member.id, occurred_at, won)
         await galatron_repo.add_attempt(self.id, member.id, occurred_at.timestamp(), won)
         if won:
@@ -211,7 +191,7 @@ class Guild(GuildBase):
         if gs is None:
             return cls(
                 guild, {}, {}, None, [], GalatronLog(guild),
-                SettingTimeline(DEFAULT_COOLDOWN_S), SettingTimeline(DEFAULT_CHANCE),
+                SettingTimeline(DEFAULT_CHANCE),
                 random.choice(list(Register)), {}, {},
             )
 
@@ -239,15 +219,11 @@ class Guild(GuildBase):
         ]
         galatron_log = GalatronLog(
             guild,
-            [GalatronAttempt(a.member_id, datetime.fromtimestamp(a.occurred_at), a.won) for a in gs.galatron_attempts],
-        )
-        galatron_cooldowns = SettingTimeline(
-            DEFAULT_COOLDOWN_S,
-            [(datetime.fromtimestamp(p.valid_from), p.value) for p in gs.galatron_cooldowns],
+            [GalatronAttempt(a.member_id, datetime.fromtimestamp(a.occurred_at, timezone.utc), a.won) for a in gs.galatron_attempts],
         )
         galatron_chances = SettingTimeline(
             DEFAULT_CHANCE,
-            [(datetime.fromtimestamp(p.valid_from), p.value) for p in gs.galatron_chances],
+            [(datetime.fromtimestamp(p.valid_from, timezone.utc), p.value) for p in gs.galatron_chances],
         )
         galatron_register = Register(gs.galatron_register) if gs.galatron_register else random.choice(list(Register))
 
@@ -267,6 +243,6 @@ class Guild(GuildBase):
         }
 
         return cls(
-            guild, host_roles, lfg_channels, galatron_role, galatron_channels, galatron_log, galatron_cooldowns,
+            guild, host_roles, lfg_channels, galatron_role, galatron_channels, galatron_log,
             galatron_chances, galatron_register, trivia_channels, minecraft_channels,
         )

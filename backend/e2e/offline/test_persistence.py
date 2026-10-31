@@ -84,7 +84,7 @@ async def test_attempts_are_stamped_with_the_test_clock(db):
     await db.guild.galatron_record_attempt(db.fake.player, won=False)
 
     attempt = db.guild.galatron_log.attempts[0]
-    assert timedelta(days=1, hours=23) < attempt.occurred_at - clock.now() + timedelta(days=2) < timedelta(days=2, minutes=1)
+    assert timedelta(days=1, hours=23) < attempt.occurred_at - clock.now_utc() + timedelta(days=2) < timedelta(days=2, minutes=1)
     await db.e2e.assert_write_through()
 
 

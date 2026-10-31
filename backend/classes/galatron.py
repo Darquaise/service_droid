@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
-from datetime import timedelta, datetime
+from datetime import datetime, time, timedelta, timezone
 from typing import TYPE_CHECKING, Iterable
 import discord
 
@@ -11,7 +11,12 @@ if TYPE_CHECKING:
     from .context import ApplicationContext
 
 DEFAULT_CHANCE = 0.005
-DEFAULT_COOLDOWN_S = 86_400
+
+
+def next_reset(after: datetime) -> datetime:
+    """The first 00:00 UTC strictly after ``after`` (aware)."""
+    midnight = datetime.combine(after.astimezone(timezone.utc).date(), time(), timezone.utc)
+    return midnight + timedelta(days=1)
 
 
 class GalatronData:
@@ -30,8 +35,9 @@ class GalatronData:
         if last_used is None:
             return None
 
-        next_allowed = last_used + self._ctx.g.galatron_cooldown
-        return next_allowed if next_allowed > clock.now() else None
+        # One attempt per UTC day: the stamp's day is over at the next 00:00 UTC.
+        next_allowed = next_reset(last_used)
+        return next_allowed if next_allowed > clock.now_utc() else None
 
     @property
     def is_current_owner(self) -> bool:
@@ -115,7 +121,7 @@ class GalatronLog:
         wins = self.wins
         for x, attempt in enumerate(wins):
             member_id = attempt.member_id
-            end_time = wins[x + 1].occurred_at if len(wins) > x + 1 else clock.now()
+            end_time = wins[x + 1].occurred_at if len(wins) > x + 1 else clock.now_utc()
 
             if member_id not in member_times:
                 member = self.guild.get_member(member_id)

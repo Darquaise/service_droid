@@ -81,10 +81,12 @@ The same warning is not repeated within six hours; a different problem is always
 
 ### Galatron
 
-A community claim-the-artifact game: members roll for a server-wide role, with cooldowns and chance configurable per guild.
+A community claim-the-artifact game: members roll for a server-wide role, with a configurable success chance per guild.
+
+Each member gets one attempt per day. The cooldown resets for everyone at 00:00 UTC.
 
 Every attempt is recorded individually with its timestamp.
-Cooldown and chance are stored the same way, so a change applies from the moment it is made and past attempts stay attributable to the settings that were in force back then.
+The chance is stored the same way, so a change applies from the moment it is made and past attempts stay attributable to the chance that was in force back then.
 
 **How an attempt is answered.**
 A failed attempt puts a single quiet line in the channel, while the full write-up goes only to whoever made it, so the hunt doesn't flood the channel.
@@ -115,7 +117,6 @@ Cases that come up often are mentioned only occasionally, so they don't turn int
 | `/setting_add_galatron_channel {channel}`                  | Add a channel where the Galatron can be claimed.           |
 | `/setting_remove_galatron_channel {channel}`               | Remove a Galatron channel.                                 |
 | `/setting_set_galatron_role {role}`                        | Set the role granted to the current bearer.                |
-| `/setting_set_galatron_cooldown {time_unit} {time_amount}` | Per-member cooldown between attempts.                      |
 | `/setting_set_galatron_chance {chance}`                    | Success chance (as percentage).                            |
 | `/current_settings_galatron`                               | Show current Galatron setup.                               |
 | `/galatron_reset`                                          | Wipe every recorded Galatron attempt.                      |

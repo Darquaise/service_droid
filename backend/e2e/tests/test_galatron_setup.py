@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from store.models import GalatronAttemptRow
 
 from e2e.tests.helpers import setup_galatron
@@ -60,17 +58,7 @@ async def test_role_setup_is_persisted_and_validated(e2e):
     assert e2e.g.galatron_role.id == role.id
 
 
-async def test_cooldown_and_chance_settings(e2e):
-    cooldown = await e2e.slash("setting_set_galatron_cooldown", time_unit="hours", time_amount=2)
-    assert "set to 2 hours" in cooldown.original.content
-    assert e2e.g.galatron_cooldown == timedelta(hours=2)
-    await e2e.assert_persisted(lambda g: g.galatron_cooldown == timedelta(hours=2))
-
-    same = await e2e.slash("setting_set_galatron_cooldown", time_unit="hours", time_amount=2)
-    assert "Nothing changed" in same.original.content
-    zero = await e2e.slash("setting_set_galatron_cooldown", time_unit="hours", time_amount=0)
-    assert "greater than 0" in zero.original.content
-
+async def test_chance_setting(e2e):
     chance = await e2e.slash("setting_set_galatron_chance", chance=50.0)
     assert "50.0% chance is now" in chance.original.content
     assert e2e.g.galatron_chance == 0.5

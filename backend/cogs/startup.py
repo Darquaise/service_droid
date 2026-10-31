@@ -57,7 +57,7 @@ class StartupCog(commands.Cog):
             g = Guild.from_state(guild, state.guilds.get(guild.id))
             joined_at = guild.me.joined_at if guild.me else None
             if joined_at is not None:
-                await g.ensure_galatron_timelines(joined_at.astimezone().replace(tzinfo=None))
+                await g.ensure_galatron_timelines(joined_at)
         logger.info("loaded %d guild(s)", len(self.bot.guilds))
 
         # --> load trivia handlers

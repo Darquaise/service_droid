@@ -134,7 +134,6 @@ Skip once with `git commit --no-verify` / `git push --no-verify`.
 ## Writing a test
 
 ```python
-from datetime import timedelta
 from e2e.tests.helpers import attempt, fail, register, setup_galatron, win
 
 async def test_cooldown(e2e):
@@ -145,7 +144,7 @@ async def test_cooldown(e2e):
     rejected = await attempt(e2e, player)
     assert rejected.original.ephemeral
 
-    e2e.advance_time(e2e.g.galatron_cooldown + timedelta(seconds=1))
+    e2e.advance_to_daily_reset()                   # one second past the next 00:00 UTC
     assert not (await fail(e2e, player)).original.ephemeral
     await e2e.assert_write_through()
 ```

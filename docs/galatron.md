@@ -13,16 +13,28 @@ which keeps the per-member total and last-attempt stamp alongside the list so th
 after the role was actually handed out on a win), so an attempt that could not be completed doesn't burn the
 member's cooldown.
 
-Cooldown and chance are timelines, not scalars: **`galatron_cooldown`** / **`galatron_chance`** hold one row per
-period (`valid_from`, value), the newest one is in force, and the oldest also covers everything before it
-(`classes/generics.py:SettingTimeline`, exposed as `Guild.galatron_cooldown` / `.galatron_chance`).
+The chance is a timeline, not a scalar: **`galatron_chance`** holds one row per period (`valid_from`, value), the
+newest one is in force, and the oldest also covers everything before it (`classes/generics.py:SettingTimeline`,
+exposed as `Guild.galatron_chance`).
 `/galatron_stats_total` is what makes the chance timeline pay off: it groups the attempts by the chance that was
 in force when they were made and convolves the per-group binomials (`cogs/galatron_commands.py:win_count_pmf` —
 a Poisson binomial), instead of judging every attempt ever made by today's chance.
-`Guild.ensure_galatron_timelines(joined_at)` runs for every guild at startup and gives a timeline its starting
+`Guild.ensure_galatron_timelines(joined_at)` runs for every guild at startup and gives the timeline its starting
 point — the bot cannot have had a setting before it joined, so a missing timeline starts at the join and one
 reaching further back is pulled forward to it (that is how the values carried over by migration `0004` get their
 real start).
+
+## Cooldown: one attempt per UTC day
+
+There is no configurable cooldown. A member's attempt blocks them until the next **00:00 UTC**, for everyone at
+the same instant (`classes/galatron.py:next_reset`, checked in `GalatronData.is_on_cooldown`; the rejection
+message shows that instant). Migration `0006` dropped the former `galatron_cooldown` timeline.
+
+All Galatron timestamps (`GalatronAttempt.occurred_at`, the chance timeline, `ensure_galatron_timelines`) are
+**aware UTC** (`clock.now_utc()`, loaded with `datetime.fromtimestamp(ts, timezone.utc)`). Do not mix in
+`clock.now()`: that is naive local time, which is UTC in the production container but not on a dev machine, and
+it cannot be compared with these values anyway. A test must not run across the real 00:00 UTC —
+`setup_galatron` calls `e2e.keep_clear_of_daily_reset()`; use `e2e.advance_to_daily_reset()` to lift a cooldown.
 
 **History before this model** could not be reconstructed from the database (the old schema only had counters).
 It was recovered by reading the production channel history — `backup/galatron_scan.py` collects and cross-checks

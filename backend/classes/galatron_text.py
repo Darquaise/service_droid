@@ -453,7 +453,7 @@ class AttemptContext:
 
 
 def build_context(log: "GalatronLog", member_id: int, now: datetime | None = None) -> AttemptContext:
-    now = now or clock.now()
+    now = now or clock.now_utc()
     attempts = log.attempts
     wins = log.wins
 

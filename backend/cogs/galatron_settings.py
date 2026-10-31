@@ -1,11 +1,9 @@
-from datetime import timedelta
 import discord
 
 from classes import (
     ServiceDroid, ApplicationContext, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
     role_assignment_error,
 )
-from converters.time import td2text_long, TIME_UNITS
 
 
 def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
@@ -16,7 +14,7 @@ def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
         text += ", ".join([ga_channel.mention for ga_channel in ctx.g.galatron_channels])
 
     text += f"\n\n**Role:** {ctx.galatron.role.mention if ctx.galatron.role else None}\n"
-    text += f"**Cooldown:** {td2text_long(ctx.g.galatron_cooldown)}\n"
+    text += "**Cooldown:** resets daily at 00:00 UTC\n"
     text += f"**Chance:** {ctx.g.galatron_chance * 100}%\n"
 
     embed = discord.Embed(
@@ -86,38 +84,6 @@ class GalatronSettingsCog(discord.Cog):
             return await ctx.respond(role_err, ephemeral=True)
         await ctx.g.set_galatron_role(role)
         return await ctx.respond(f"{role.mention} is now being used for the Galatron hunt!")
-
-    @discord.slash_command(description="Set the per-member cooldown between Galatron attempts.")
-    @discord.default_permissions(administrator=True)
-    async def setting_set_galatron_cooldown(
-            self, ctx: ApplicationContext,
-            time_unit: str = option(str, "Of what kind the given time will be", choices=TIME_UNITS),
-            time_amount: int = option(int, "The amount of time")
-    ):
-        # for some reason this is a string and not int
-        time_amount = int(time_amount)
-
-        if time_amount <= 0:
-            return await ctx.respond(
-                "The cooldown must be greater than 0.",
-                ephemeral=True
-            )
-
-        # time_unit is restricted by choices=TIME_UNITS, all of which are valid timedelta kwargs
-        duration = timedelta(**{time_unit: time_amount})
-
-        if duration == ctx.g.galatron_cooldown:
-            return await ctx.respond(
-                f"The cooldown has been set to {time_amount} {time_unit}. Nothing changed.",
-                ephemeral=True
-            )
-        else:
-            await ctx.g.set_galatron_cooldown(duration)
-
-            return await ctx.respond(
-                f"The cooldown for the Galatron has been set to {time_amount} {time_unit}.",
-                ephemeral=True
-            )
 
     @discord.slash_command(description="Set the success chance per Galatron attempt.")
     @discord.default_permissions(administrator=True)

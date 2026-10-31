@@ -2,6 +2,8 @@ from datetime import timedelta
 
 import discord
 
+from classes import clock
+from classes.galatron import next_reset
 from store.models import GalatronAttemptRow
 
 from e2e.tests.helpers import (
@@ -96,34 +98,48 @@ async def test_cooldown_rejects_then_expires(e2e):
     response = await attempt(e2e, player)
     assert response.original.ephemeral
     assert pool_matches(galatron_text.COOLDOWN[register(e2e)], response.original.content)
-    next_allowed = int((e2e.g.galatron_log.last_attempt_at(player.id) + e2e.g.galatron_cooldown).timestamp())
+    next_allowed = int(next_reset(e2e.g.galatron_log.last_attempt_at(player.id)).timestamp())
     assert f"<t:{next_allowed}" in response.original.content
     assert e2e.g.galatron_log.total_for(player.id) == 1, "a rejection must not burn the attempt"
 
-    e2e.advance_time(e2e.g.galatron_cooldown + timedelta(seconds=1))
+    e2e.advance_to_daily_reset()
     again = await fail(e2e, player)
     assert again.original.content.startswith("-# ")
     assert e2e.g.galatron_log.total_for(player.id) == 2
     await e2e.assert_persisted(lambda g: g.galatron_log.total_for(player.id) == 2)
 
 
-async def test_custom_cooldown_is_what_expires(e2e):
+async def test_cooldown_lifts_at_midnight_utc_for_everyone(e2e):
     await setup_galatron(e2e)
-    await e2e.slash("setting_set_galatron_cooldown", time_unit="minutes", time_amount=10)
+    first, second = e2e.players[0], e2e.players[1]
+    await fail(e2e, first)
+
+    # a day-length of waiting is not what counts: the reset is the next 00:00 UTC
+    e2e.advance_time(next_reset(clock.now_utc()) - clock.now_utc() - timedelta(minutes=1))
+    assert (await attempt(e2e, first)).original.ephemeral
+    await fail(e2e, second)
+
+    e2e.advance_time(timedelta(minutes=2))
+    assert not (await fail(e2e, first)).original.ephemeral
+    assert not (await fail(e2e, second)).original.ephemeral
+
+
+async def test_attempt_just_before_midnight_does_not_carry_over(e2e):
+    await setup_galatron(e2e)
     player = e2e.players[0]
+    e2e.advance_time(next_reset(clock.now_utc()) - clock.now_utc() - timedelta(seconds=30))
     await fail(e2e, player)
 
-    e2e.advance_time(timedelta(minutes=9))
-    assert (await attempt(e2e, player)).original.ephemeral
-    e2e.advance_time(timedelta(minutes=2))
+    e2e.advance_time(timedelta(seconds=31))
     assert not (await fail(e2e, player)).original.ephemeral
+    assert e2e.g.galatron_log.total_for(player.id) == 2
 
 
 async def test_the_bearer_cannot_claim_again(e2e):
     await setup_galatron(e2e)
     player = e2e.players[0]
     await win(e2e, player)
-    e2e.advance_time(e2e.g.galatron_cooldown + timedelta(seconds=1))
+    e2e.advance_to_daily_reset()
 
     response = await attempt(e2e, player)
     assert response.original.ephemeral

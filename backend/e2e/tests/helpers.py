@@ -15,6 +15,7 @@ PICK = "Pick a list..."
 async def setup_galatron(e2e: E2E, channel=None) -> None:
     """Role and hunting channel configured through the real settings commands."""
     channel = channel or e2e.sandbox.galatron
+    e2e.keep_clear_of_daily_reset()
     await e2e.slash("setting_set_galatron_role", role=e2e.sandbox.galatron_role)
     await e2e.slash("setting_add_galatron_channel", channel=channel)
 

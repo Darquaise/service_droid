@@ -124,6 +124,20 @@ class E2E:
         from classes import clock
         clock.advance(delta)
 
+    def advance_to_daily_reset(self) -> None:
+        """Move the clock one second past the next 00:00 UTC, when the Galatron cooldown lifts for everyone."""
+        from classes import clock
+        from classes.galatron import next_reset
+        clock.advance(next_reset(clock.now_utc()) - clock.now_utc() + timedelta(seconds=1))
+
+    def keep_clear_of_daily_reset(self, margin: timedelta = timedelta(minutes=30)) -> None:
+        """A test running across the real 00:00 UTC would see its cooldown lift mid-way; if that is
+        closer than ``margin``, jump past it first."""
+        from classes import clock
+        from classes.galatron import next_reset
+        if next_reset(clock.now_utc()) - clock.now_utc() < margin:
+            self.advance_to_daily_reset()
+
     def force_random(self, *values: float) -> None:
         """Make ``random.random()`` in cogs/galatron_commands return ``values`` in turn (the last one
         repeats). The win roll is ``random.random() < chance``, so ``0.0`` wins and ``0.999`` loses."""
@@ -306,7 +320,7 @@ class E2E:
         await reload_guild(self.bot, self.guild.id)
         joined_at = self.guild.me.joined_at
         if joined_at is not None:
-            await self.g.ensure_galatron_timelines(joined_at.astimezone().replace(tzinfo=None))
+            await self.g.ensure_galatron_timelines(joined_at)
 
         self._test_started = discord.utils.time_snowflake(datetime.now(timezone.utc))
         for member in self.players:
@@ -431,7 +445,6 @@ def guild_snapshot(g) -> dict:
         "galatron_role": g.galatron_role.id if g.galatron_role else None,
         "galatron_channels": sorted(c.id for c in g.galatron_channels),
         "galatron_register": str(g.galatron_register),
-        "galatron_cooldowns": [(_ts(t), v) for t, v in g.galatron_cooldowns.periods],
         "galatron_chances": [(_ts(t), v) for t, v in g.galatron_chances.periods],
         "galatron_attempts": [(a.member_id, _ts(a.occurred_at), a.won) for a in g.galatron_log.attempts],
         "host_roles": {rid: h.get_cooldown_text() for rid, h in sorted(g.host_roles.items())},

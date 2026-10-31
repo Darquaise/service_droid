@@ -14,7 +14,6 @@ from .models import (
     GalatronAttemptRow,
     GalatronChanceRow,
     GalatronChannelRow,
-    GalatronCooldownRow,
     GuildRow,
     MinecraftStatusChannelRow,
     LfgChannelRoleRow,
@@ -173,16 +172,8 @@ class GalatronRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def add_cooldown(self, guild_id: int, cooldown_s: int, valid_from: float) -> None:
-        await self._add_period(
-            GalatronCooldownRow, guild_id, valid_from, cooldown_s=int(cooldown_s)
-        )
-
     async def add_chance(self, guild_id: int, chance: float, valid_from: float) -> None:
         await self._add_period(GalatronChanceRow, guild_id, valid_from, chance=chance)
-
-    async def move_cooldown_start(self, guild_id: int, old: float, new: float) -> None:
-        await self._move_period(GalatronCooldownRow, guild_id, old, new)
 
     async def move_chance_start(self, guild_id: int, old: float, new: float) -> None:
         await self._move_period(GalatronChanceRow, guild_id, old, new)
@@ -208,7 +199,7 @@ class GalatronRepo(_Repo):
             await emit_change(s, guild_id)
 
     async def clear_attempts(self, guild_id: int) -> None:
-        """Wipe every attempt (channels/role/cooldown/chance kept)."""
+        """Wipe every attempt (channels/role/chance kept)."""
         async with self._session() as s, s.begin():
             await s.execute(
                 delete(GalatronAttemptRow).where(GalatronAttemptRow.guild_id == guild_id)
@@ -464,7 +455,6 @@ def _build_guild_state(
     lfg_channel_roles,
     ga_channels,
     ga_attempts,
-    ga_cooldowns,
     ga_chances,
     tr_channels,
     mc_channels,
@@ -484,9 +474,6 @@ def _build_guild_state(
         galatron_channels=[c.channel_id for c in ga_channels],
         galatron_attempts=[
             AttemptData(a.member_id, _to_epoch(a.occurred_at), a.won) for a in ga_attempts
-        ],
-        galatron_cooldowns=[
-            PeriodData(_to_epoch(c.valid_from), c.cooldown_s) for c in ga_cooldowns
         ],
         galatron_chances=[PeriodData(_to_epoch(c.valid_from), c.chance) for c in ga_chances],
         trivia_channels=[
@@ -529,7 +516,6 @@ async def load_state() -> LoadedState:
                 )
             )
         ).scalars().all()
-        ga_cooldowns = (await s.execute(select(GalatronCooldownRow))).scalars().all()
         ga_chances = (await s.execute(select(GalatronChanceRow))).scalars().all()
         tr_channels = (await s.execute(select(TriviaChannelRow))).scalars().all()
         mc_channels = (await s.execute(select(MinecraftStatusChannelRow))).scalars().all()
@@ -559,9 +545,6 @@ async def load_state() -> LoadedState:
     ga_att_by_g: dict[int, list] = defaultdict(list)
     for a in ga_attempts:
         ga_att_by_g[a.guild_id].append(a)
-    ga_cd_by_g: dict[int, list] = defaultdict(list)
-    for c in ga_cooldowns:
-        ga_cd_by_g[c.guild_id].append(c)
     ga_ch_by_g: dict[int, list] = defaultdict(list)
     for c in ga_chances:
         ga_ch_by_g[c.guild_id].append(c)
@@ -586,7 +569,6 @@ async def load_state() -> LoadedState:
             lfg_roles_by_g.get(g.guild_id, []),
             ga_chan_by_g.get(g.guild_id, []),
             ga_att_by_g.get(g.guild_id, []),
-            ga_cd_by_g.get(g.guild_id, []),
             ga_ch_by_g.get(g.guild_id, []),
             tr_chan_by_g.get(g.guild_id, []),
             mc_chan_by_g.get(g.guild_id, []),
@@ -634,11 +616,6 @@ async def load_guild_state(
                 .order_by(GalatronAttemptRow.occurred_at, GalatronAttemptRow.id)
             )
         ).scalars().all()
-        ga_cooldowns = (
-            await s.execute(
-                select(GalatronCooldownRow).where(GalatronCooldownRow.guild_id == guild_id)
-            )
-        ).scalars().all()
         ga_chances = (
             await s.execute(
                 select(GalatronChanceRow).where(GalatronChanceRow.guild_id == guild_id)
@@ -667,6 +644,6 @@ async def load_guild_state(
 
     gs = _build_guild_state(
         g, host_roles, lfg_channels, lfg_channel_roles,
-        ga_channels, ga_attempts, ga_cooldowns, ga_chances, tr_channels, mc_channels,
+        ga_channels, ga_attempts, ga_chances, tr_channels, mc_channels,
     )
     return gs, _build_lists(tr_lists, tr_questions)
