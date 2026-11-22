@@ -25,7 +25,7 @@ bot = ServiceDroid(
     debug_guilds=settings.debug_guild_ids if settings.debug else None,
     intents=intents,
     settings=settings,
-    owner_ids=set(settings.owner_ids)
+    owner_ids=set(settings.owner_ids),
 )
 bot.exit_code = 0
 

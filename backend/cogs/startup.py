@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class StartupCog(commands.Cog):
-
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
         bot.loop.create_task(self.startup())
@@ -43,7 +42,7 @@ class StartupCog(commands.Cog):
         # pre-setup
         logger.info("connection established")
 
-        activity = discord.Activity(name='Starting...', type=discord.ActivityType.playing)
+        activity = discord.Activity(name="Starting...", type=discord.ActivityType.playing)
         await self.bot.change_presence(activity=activity)
 
         # setup
@@ -78,9 +77,7 @@ class StartupCog(commands.Cog):
         logger.info("cogs loaded")
 
         # --> start the live DB-sync listener
-        change_listener = ChangeListener(
-            self.bot.settings.database_url, partial(reload_guild, self.bot)
-        )
+        change_listener = ChangeListener(self.bot.settings.database_url, partial(reload_guild, self.bot))
         change_listener.start(self.bot.loop)
         self.bot.change_listener = change_listener
 
@@ -89,7 +86,7 @@ class StartupCog(commands.Cog):
         logger.info("slash commands registered")
 
         # set activity to bot version
-        activity = discord.Activity(name='Stellaris', type=discord.ActivityType.playing)
+        activity = discord.Activity(name="Stellaris", type=discord.ActivityType.playing)
         await self.bot.change_presence(activity=activity)
 
         logger.info("startup finished")

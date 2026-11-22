@@ -43,11 +43,11 @@ def _read_tail(path: str, max_lines: int) -> list[str]:
 
 class LogView(View):
     def __init__(
-            self,
-            ctx: ApplicationContext,
-            log_path: str,
-            lines_per_page: int = DEFAULT_LINES_PER_PAGE,
-            timeout: float = 300,
+        self,
+        ctx: ApplicationContext,
+        log_path: str,
+        lines_per_page: int = DEFAULT_LINES_PER_PAGE,
+        timeout: float = 300,
     ):
         super().__init__(timeout=timeout)
         self.ctx = ctx
@@ -84,7 +84,7 @@ class LogView(View):
             )
 
         end = self.start_line + self.lines_per_page
-        page = self.lines[self.start_line:end]
+        page = self.lines[self.start_line : end]
 
         rendered = []
         for line in page:
@@ -102,10 +102,7 @@ class LogView(View):
             description=f"```\n{body}\n```",
         )
         embed.set_footer(
-            text=(
-                f"Lines {self.start_line + 1}-{min(end, total)} / {total}"
-                f" • {self.lines_per_page} per page"
-            )
+            text=(f"Lines {self.start_line + 1}-{min(end, total)} / {total} • {self.lines_per_page} per page")
         )
         return embed
 
@@ -189,10 +186,7 @@ class LogView(View):
         row=2,
         min_values=1,
         max_values=1,
-        options=[
-            discord.SelectOption(label=f"{n} lines", value=str(n))
-            for n in LINES_PER_PAGE_OPTIONS
-        ],
+        options=[discord.SelectOption(label=f"{n} lines", value=str(n)) for n in LINES_PER_PAGE_OPTIONS],
     )
     async def lines_select(self, sel: discord.ui.Select, interaction: Interaction):
         values = sel.values

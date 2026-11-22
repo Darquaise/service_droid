@@ -65,13 +65,13 @@ TIME_UNITS = ["days", "hours", "minutes", "seconds"]
 
 
 def transform_time(time_amount: int, time_unit: str) -> timedelta | None:
-    if time_unit == 'days':
+    if time_unit == "days":
         time = timedelta(days=time_amount)
-    elif time_unit == 'hours':
+    elif time_unit == "hours":
         time = timedelta(hours=time_amount)
-    elif time_unit == 'minutes':
+    elif time_unit == "minutes":
         time = timedelta(minutes=time_amount)
-    elif time_unit == 'seconds':
+    elif time_unit == "seconds":
         time = timedelta(seconds=time_amount)
     else:
         return None

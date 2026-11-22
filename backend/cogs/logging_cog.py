@@ -18,21 +18,24 @@ class LoggingCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_application_command_completion(self, ctx):
-        opts = {
-            o["name"]: o.get("value")
-            for o in (ctx.interaction.data.get("options") or [])
-        }
+        opts = {o["name"]: o.get("value") for o in (ctx.interaction.data.get("options") or [])}
         logger.info(
             "cmd /%s by %s(%s) in %s/#%s opts=%s",
-            ctx.command.qualified_name, ctx.user, ctx.user.id,
-            ctx.guild, self._channel_name(ctx), opts,
+            ctx.command.qualified_name,
+            ctx.user,
+            ctx.user.id,
+            ctx.guild,
+            self._channel_name(ctx),
+            opts,
         )
 
     @commands.Cog.listener()
     async def on_application_command_error(self, ctx, error):
         logger.exception(
             "cmd /%s by %s failed: %s",
-            getattr(ctx.command, "qualified_name", "?"), ctx.user, error,
+            getattr(ctx.command, "qualified_name", "?"),
+            ctx.user,
+            error,
             exc_info=error,
         )
 
@@ -49,14 +52,19 @@ class LoggingCog(commands.Cog):
     async def on_command_completion(self, ctx):
         logger.info(
             "cmd !%s by %s(%s) in %s/#%s",
-            ctx.command.qualified_name, ctx.author, ctx.author.id,
-            ctx.guild, self._channel_name(ctx),
+            ctx.command.qualified_name,
+            ctx.author,
+            ctx.author.id,
+            ctx.guild,
+            self._channel_name(ctx),
         )
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         logger.exception(
             "cmd !%s by %s failed: %s",
-            getattr(ctx.command, "qualified_name", "?"), ctx.author, error,
+            getattr(ctx.command, "qualified_name", "?"),
+            ctx.author,
+            error,
             exc_info=error,
         )

@@ -1,4 +1,3 @@
-import asyncio
 import discord
 from discord.ext import commands
 import random
@@ -7,9 +6,13 @@ from typing import Iterable
 from datetime import timedelta
 
 from classes import (
-    ApplicationContext, ServiceDroid, GalatronStatsView, GalatronLeaderboardView, role_assignment_error, notify_owner
+    ApplicationContext,
+    ServiceDroid,
+    GalatronStatsView,
+    GalatronLeaderboardView,
+    role_assignment_error,
+    notify_owner,
 )
-from classes.galatron_leaderboard_view import PRIME_DELAY
 from classes import galatron_text as text
 
 GALATRON_IMAGE = Path(__file__).resolve().parent.parent / "assets" / "galatron.png"
@@ -52,7 +55,6 @@ def win_count_pmf(groups: Iterable[tuple[float, int]], k_max: int) -> list[float
 
 
 class GalatronCog(commands.Cog):
-
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
 
@@ -62,31 +64,23 @@ class GalatronCog(commands.Cog):
             return await ctx.respond("This feature hasn't been set up by your admins yet.")
 
         if not ctx.galatron.is_galatron_channel:
-            return await ctx.respond(
-                text.wrong_channel(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.wrong_channel(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         next_allowed = ctx.galatron.is_on_cooldown
         if next_allowed:
             return await ctx.respond(
-                text.cooldown(ctx.guild.id, ctx.g.galatron_register, int(next_allowed.timestamp())),
-                ephemeral=True
+                text.cooldown(ctx.guild.id, ctx.g.galatron_register, int(next_allowed.timestamp())), ephemeral=True
             )
 
         if ctx.galatron.is_current_owner:
-            return await ctx.respond(
-                text.already_owner(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.already_owner(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         # Bail out before consuming the attempt if we couldn't hand out the role on a win.
         role_err = role_assignment_error(ctx.guild, ctx.galatron.role)
         if role_err:
             await notify_owner(
                 ctx.guild,
-                f"The Galatron hunt is broken: {role_err}\n"
-                f"Attempts are paused until this is fixed.",
+                f"The Galatron hunt is broken: {role_err}\nAttempts are paused until this is fixed.",
             )
             return await ctx.respond(text.suspended(ctx.guild.id), ephemeral=True)
 
@@ -130,14 +124,14 @@ class GalatronCog(commands.Cog):
 
     @discord.slash_command(
         name="attempt_galatron",
-        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
+        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron.",
     )
     async def command_attempt_galatron(self, ctx: ApplicationContext):
         await self.get_galatron(ctx)
 
     @discord.slash_command(
         name="galatron_attempt",
-        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron."
+        description="Reach into twisted reality and attempt to claim the cosmic artifact known as the Galatron.",
     )
     async def command_galatron_attempt(self, ctx: ApplicationContext):
         await self.get_galatron(ctx)
@@ -145,10 +139,7 @@ class GalatronCog(commands.Cog):
     @staticmethod
     async def locate_galatron(ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
-            return await ctx.respond(
-                text.wrong_channel(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.wrong_channel(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         # Plain text since a mention inside an embed stays unresolved for viewers who don't have that member cached
         return await ctx.respond(
@@ -158,15 +149,13 @@ class GalatronCog(commands.Cog):
         )
 
     @discord.slash_command(
-        name="locate_galatron",
-        description="Reveal the current location of the Galatron and its chosen bearer."
+        name="locate_galatron", description="Reveal the current location of the Galatron and its chosen bearer."
     )
     async def command_locate_galatron(self, ctx: ApplicationContext):
         await self.locate_galatron(ctx)
 
     @discord.slash_command(
-        name="galatron_locate",
-        description="Reveal the current location of the Galatron and its chosen bearer."
+        name="galatron_locate", description="Reveal the current location of the Galatron and its chosen bearer."
     )
     async def command_galatron_locate(self, ctx: ApplicationContext):
         await self.locate_galatron(ctx)
@@ -174,54 +163,23 @@ class GalatronCog(commands.Cog):
     @discord.slash_command(description="Show the all-time leaderboard of Galatron bearers.")
     async def galatron_leaderboard(self, ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
-            return await ctx.respond(
-                text.wrong_channel(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.wrong_channel(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         leaderboard = sorted(await ctx.g.galatron_log.calculate_leaderboard(), key=lambda x: x[1], reverse=True)
 
         if not leaderboard:
             return await ctx.respond(text.no_leaderboard_entries(ctx.guild.id, ctx.g.galatron_register))
 
-        title = "Galatron Leaderboard – All-Time"
+        title = "Galatron Leaderboard"
         view = GalatronLeaderboardView(ctx, leaderboard, title)
-        content = view.build_content(view.current_page)
-        view.primed_pages.add(view.current_page)
-
-        if content:
-            await ctx.respond(
-                content=content,
-                view=view,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-            view.message = await ctx.interaction.original_response()
-            await asyncio.sleep(PRIME_DELAY)
-            try:
-                await view.message.edit(
-                    content="",
-                    embeds=view.build_embeds(view.current_page),
-                    view=view,
-                    allowed_mentions=discord.AllowedMentions.none(),
-                )
-            except discord.HTTPException:
-                pass
-        else:
-            await ctx.respond(
-                embeds=view.build_embeds(view.current_page),
-                view=view,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-            view.message = await ctx.interaction.original_response()
+        await ctx.respond(view=view, allowed_mentions=discord.AllowedMentions.none())
+        view.message = await ctx.interaction.original_response()
         return None
 
     @discord.slash_command()
     async def galatron_stats(self, ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
-            return await ctx.respond(
-                text.wrong_channel(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.wrong_channel(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         leaderboard_by_id = {
             int(member.id): (member, total_duration, total_got)
@@ -244,16 +202,14 @@ class GalatronCog(commands.Cog):
         stats.sort(key=lambda x: x[1], reverse=True)
 
         view = GalatronStatsView(ctx, stats)
-        embed = view.build_embed(0)
-        return await ctx.respond(embed=embed, view=view)
+        await ctx.respond(view=view, allowed_mentions=discord.AllowedMentions.none())
+        view.message = await ctx.interaction.original_response()
+        return None
 
     @discord.slash_command()
     async def galatron_stats_total(self, ctx: ApplicationContext):
         if not ctx.galatron.is_galatron_channel:
-            return await ctx.respond(
-                text.wrong_channel(ctx.guild.id, ctx.g.galatron_register),
-                ephemeral=True
-            )
+            return await ctx.respond(text.wrong_channel(ctx.guild.id, ctx.g.galatron_register), ephemeral=True)
 
         log = ctx.g.galatron_log
         if log.total_attempts == 0:
@@ -272,7 +228,7 @@ class GalatronCog(commands.Cog):
 
         pmf = win_count_pmf(groups, total_received)
         luck_percentile = 1 - sum(pmf[:total_received])  # P(at least this many wins)
-        low_tail = sum(pmf[:total_received + 1])  # P(at most this many wins)
+        low_tail = sum(pmf[: total_received + 1])  # P(at most this many wins)
 
         empirical_rate = total_received / total_uses * 100
 

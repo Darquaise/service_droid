@@ -7,7 +7,11 @@ if TYPE_CHECKING:
 
 
 class GuildBase:
-    __slots__ = "roles", "channels", "guild",
+    __slots__ = (
+        "roles",
+        "channels",
+        "guild",
+    )
 
     _instances: dict[int, Guild] = {}
 

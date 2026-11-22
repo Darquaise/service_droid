@@ -98,9 +98,7 @@ class LfgRepo(_Repo):
     async def delete_host_role(self, guild_id: int, role_id: int) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
-                delete(LfgHostRoleRow).where(
-                    LfgHostRoleRow.guild_id == guild_id, LfgHostRoleRow.role_id == role_id
-                )
+                delete(LfgHostRoleRow).where(LfgHostRoleRow.guild_id == guild_id, LfgHostRoleRow.role_id == role_id)
             )
             await emit_change(s, guild_id)
 
@@ -121,19 +119,14 @@ class LfgRepo(_Repo):
             if role_ids:
                 await s.execute(
                     insert(LfgChannelRoleRow),
-                    [
-                        {"guild_id": guild_id, "channel_id": channel_id, "role_id": rid}
-                        for rid in role_ids
-                    ],
+                    [{"guild_id": guild_id, "channel_id": channel_id, "role_id": rid} for rid in role_ids],
                 )
             await emit_change(s, guild_id)
 
     async def delete_channel(self, guild_id: int, channel_id: int) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
-                delete(LfgChannelRow).where(
-                    LfgChannelRow.guild_id == guild_id, LfgChannelRow.channel_id == channel_id
-                )
+                delete(LfgChannelRow).where(LfgChannelRow.guild_id == guild_id, LfgChannelRow.channel_id == channel_id)
             )  # roles cascade via FK
             await emit_change(s, guild_id)
 
@@ -158,9 +151,7 @@ class GalatronRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def add_attempt(
-        self, guild_id: int, member_id: int, occurred_at: float, won: bool
-    ) -> None:
+    async def add_attempt(self, guild_id: int, member_id: int, occurred_at: float, won: bool) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
                 insert(GalatronAttemptRow).values(
@@ -201,9 +192,7 @@ class GalatronRepo(_Repo):
     async def clear_attempts(self, guild_id: int) -> None:
         """Wipe every attempt (channels/role/chance kept)."""
         async with self._session() as s, s.begin():
-            await s.execute(
-                delete(GalatronAttemptRow).where(GalatronAttemptRow.guild_id == guild_id)
-            )
+            await s.execute(delete(GalatronAttemptRow).where(GalatronAttemptRow.guild_id == guild_id))
             await emit_change(s, guild_id)
 
 
@@ -213,9 +202,7 @@ class MinecraftRepo(_Repo):
             await s.execute(
                 pg_insert(MinecraftStatusChannelRow)
                 .values(guild_id=guild_id, channel_id=channel_id, address=address)
-                .on_conflict_do_update(
-                    index_elements=["guild_id", "channel_id"], set_={"address": address}
-                )
+                .on_conflict_do_update(index_elements=["guild_id", "channel_id"], set_={"address": address})
             )
             await emit_change(s, guild_id)
 
@@ -243,9 +230,7 @@ class TriviaRepo(_Repo):
     async def remove_list(self, guild_id: int, name: str) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
-                delete(TriviaListRow).where(
-                    TriviaListRow.guild_id == guild_id, TriviaListRow.name == name
-                )
+                delete(TriviaListRow).where(TriviaListRow.guild_id == guild_id, TriviaListRow.name == name)
             )  # questions cascade via FK
             await emit_change(s, guild_id)
 
@@ -284,9 +269,7 @@ class TriviaRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def set_question_wordings(
-        self, guild_id: int, list_name: str, local_id: int, wordings: list[str]
-    ) -> None:
+    async def set_question_wordings(self, guild_id: int, list_name: str, local_id: int, wordings: list[str]) -> None:
         async with self._session() as s, s.begin():
             await s.execute(
                 update(TriviaQuestionRow)
@@ -299,32 +282,24 @@ class TriviaRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def replace_guild(
-        self, guild_id: int, lists: dict[str, list["TriviaQuestion"]]
-    ) -> None:
+    async def replace_guild(self, guild_id: int, lists: dict[str, list["TriviaQuestion"]]) -> None:
         """Replace *all* of a guild's trivia lists/questions (inject 'replace')."""
         async with self._session() as s, s.begin():
             await s.execute(delete(TriviaListRow).where(TriviaListRow.guild_id == guild_id))
             await self._insert_lists(s, guild_id, lists)
             await emit_change(s, guild_id)
 
-    async def replace_list(
-        self, guild_id: int, list_name: str, questions: list["TriviaQuestion"]
-    ) -> None:
+    async def replace_list(self, guild_id: int, list_name: str, questions: list["TriviaQuestion"]) -> None:
         """Replace a single list's questions (inject 'merge')."""
         async with self._session() as s, s.begin():
             await s.execute(
-                delete(TriviaListRow).where(
-                    TriviaListRow.guild_id == guild_id, TriviaListRow.name == list_name
-                )
+                delete(TriviaListRow).where(TriviaListRow.guild_id == guild_id, TriviaListRow.name == list_name)
             )
             await self._insert_lists(s, guild_id, {list_name: questions})
             await emit_change(s, guild_id)
 
     @staticmethod
-    async def _insert_lists(
-        s: AsyncSession, guild_id: int, lists: dict[str, list["TriviaQuestion"]]
-    ) -> None:
+    async def _insert_lists(s: AsyncSession, guild_id: int, lists: dict[str, list["TriviaQuestion"]]) -> None:
         for name, questions in lists.items():
             await s.execute(
                 pg_insert(TriviaListRow)
@@ -378,9 +353,7 @@ class TriviaRepo(_Repo):
             )
             await emit_change(s, guild_id)
 
-    async def set_channel_next_index(
-        self, guild_id: int, channel_id: int, next_index: int
-    ) -> None:
+    async def set_channel_next_index(self, guild_id: int, channel_id: int, next_index: int) -> None:
         # Bot-owned runtime cursor (single writer: the scheduler) — no notify.
         async with self._session() as s, s.begin():
             await s.execute(
@@ -393,8 +366,13 @@ class TriviaRepo(_Repo):
             )
 
     async def upsert_pending(
-        self, channel_id: int, due_at: float, title: str, question: str,
-        answer: str, answer_context: str,
+        self,
+        channel_id: int,
+        due_at: float,
+        title: str,
+        question: str,
+        answer: str,
+        answer_context: str,
     ) -> None:
         # Ephemeral runtime state (channel-scoped) — no notify.
         values = {
@@ -415,9 +393,7 @@ class TriviaRepo(_Repo):
 
     async def delete_pending(self, channel_id: int) -> None:
         async with self._session() as s, s.begin():
-            await s.execute(
-                delete(TriviaPendingRow).where(TriviaPendingRow.channel_id == channel_id)
-            )
+            await s.execute(delete(TriviaPendingRow).where(TriviaPendingRow.channel_id == channel_id))
 
     async def load_pending(self) -> dict[str, dict]:
         """Mirror of the former ``_pending.json`` (keyed by channel id as string)."""
@@ -466,26 +442,25 @@ def _build_guild_state(
         guild_id=g.guild_id,
         name=g.name,
         host_roles=[HostRoleData(r.role_id, r.cooldown, r.cooldown_unit) for r in host_roles],
-        lfg_channels=[
-            LfgChannelData(c.channel_id, roles_by_c.get(c.channel_id, [])) for c in lfg_channels
-        ],
+        lfg_channels=[LfgChannelData(c.channel_id, roles_by_c.get(c.channel_id, [])) for c in lfg_channels],
         galatron_role_id=g.galatron_role_id,
         galatron_register=g.galatron_register,
         galatron_channels=[c.channel_id for c in ga_channels],
-        galatron_attempts=[
-            AttemptData(a.member_id, _to_epoch(a.occurred_at), a.won) for a in ga_attempts
-        ],
+        galatron_attempts=[AttemptData(a.member_id, _to_epoch(a.occurred_at), a.won) for a in ga_attempts],
         galatron_chances=[PeriodData(_to_epoch(c.valid_from), c.chance) for c in ga_chances],
         trivia_channels=[
             TriviaChannelData(
-                tc.channel_id, tc.list_name, tc.schedule, tc.response,
-                tc.mode, tc.question_order, tc.next_index,
+                tc.channel_id,
+                tc.list_name,
+                tc.schedule,
+                tc.response,
+                tc.mode,
+                tc.question_order,
+                tc.next_index,
             )
             for tc in tr_channels
         ],
-        minecraft_channels=[
-            MinecraftChannelData(mc.channel_id, mc.address) for mc in mc_channels
-        ],
+        minecraft_channels=[MinecraftChannelData(mc.channel_id, mc.address) for mc in mc_channels],
     )
 
 
@@ -508,27 +483,35 @@ async def load_state() -> LoadedState:
         lfg_channel_roles = (await s.execute(select(LfgChannelRoleRow))).scalars().all()
         ga_channels = (await s.execute(select(GalatronChannelRow))).scalars().all()
         ga_attempts = (
-            await s.execute(
-                select(GalatronAttemptRow).order_by(
-                    GalatronAttemptRow.guild_id,
-                    GalatronAttemptRow.occurred_at,
-                    GalatronAttemptRow.id,
+            (
+                await s.execute(
+                    select(GalatronAttemptRow).order_by(
+                        GalatronAttemptRow.guild_id,
+                        GalatronAttemptRow.occurred_at,
+                        GalatronAttemptRow.id,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         ga_chances = (await s.execute(select(GalatronChanceRow))).scalars().all()
         tr_channels = (await s.execute(select(TriviaChannelRow))).scalars().all()
         mc_channels = (await s.execute(select(MinecraftStatusChannelRow))).scalars().all()
         tr_lists = (await s.execute(select(TriviaListRow))).scalars().all()
         tr_questions = (
-            await s.execute(
-                select(TriviaQuestionRow).order_by(
-                    TriviaQuestionRow.guild_id,
-                    TriviaQuestionRow.list_name,
-                    TriviaQuestionRow.local_id,
+            (
+                await s.execute(
+                    select(TriviaQuestionRow).order_by(
+                        TriviaQuestionRow.guild_id,
+                        TriviaQuestionRow.list_name,
+                        TriviaQuestionRow.local_id,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     host_by_g: dict[int, list] = defaultdict(list)
     for r in host_roles:
@@ -588,62 +571,65 @@ async def load_guild_state(
     """Re-read a single guild (for live reloads). Returns ``(None, {})`` if the
     guild row no longer exists."""
     async with session_factory()() as s:
-        g = (
-            await s.execute(select(GuildRow).where(GuildRow.guild_id == guild_id))
-        ).scalar_one_or_none()
+        g = (await s.execute(select(GuildRow).where(GuildRow.guild_id == guild_id))).scalar_one_or_none()
         if g is None:
             return None, {}
         host_roles = (
-            await s.execute(select(LfgHostRoleRow).where(LfgHostRoleRow.guild_id == guild_id))
-        ).scalars().all()
+            (await s.execute(select(LfgHostRoleRow).where(LfgHostRoleRow.guild_id == guild_id))).scalars().all()
+        )
         lfg_channels = (
-            await s.execute(select(LfgChannelRow).where(LfgChannelRow.guild_id == guild_id))
-        ).scalars().all()
+            (await s.execute(select(LfgChannelRow).where(LfgChannelRow.guild_id == guild_id))).scalars().all()
+        )
         lfg_channel_roles = (
-            await s.execute(
-                select(LfgChannelRoleRow).where(LfgChannelRoleRow.guild_id == guild_id)
-            )
-        ).scalars().all()
+            (await s.execute(select(LfgChannelRoleRow).where(LfgChannelRoleRow.guild_id == guild_id))).scalars().all()
+        )
         ga_channels = (
-            await s.execute(
-                select(GalatronChannelRow).where(GalatronChannelRow.guild_id == guild_id)
-            )
-        ).scalars().all()
+            (await s.execute(select(GalatronChannelRow).where(GalatronChannelRow.guild_id == guild_id))).scalars().all()
+        )
         ga_attempts = (
-            await s.execute(
-                select(GalatronAttemptRow)
-                .where(GalatronAttemptRow.guild_id == guild_id)
-                .order_by(GalatronAttemptRow.occurred_at, GalatronAttemptRow.id)
-            )
-        ).scalars().all()
-        ga_chances = (
-            await s.execute(
-                select(GalatronChanceRow).where(GalatronChanceRow.guild_id == guild_id)
-            )
-        ).scalars().all()
-        tr_channels = (
-            await s.execute(select(TriviaChannelRow).where(TriviaChannelRow.guild_id == guild_id))
-        ).scalars().all()
-        mc_channels = (
-            await s.execute(
-                select(MinecraftStatusChannelRow).where(
-                    MinecraftStatusChannelRow.guild_id == guild_id
+            (
+                await s.execute(
+                    select(GalatronAttemptRow)
+                    .where(GalatronAttemptRow.guild_id == guild_id)
+                    .order_by(GalatronAttemptRow.occurred_at, GalatronAttemptRow.id)
                 )
             )
-        ).scalars().all()
-        tr_lists = (
-            await s.execute(select(TriviaListRow).where(TriviaListRow.guild_id == guild_id))
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
+        ga_chances = (
+            (await s.execute(select(GalatronChanceRow).where(GalatronChanceRow.guild_id == guild_id))).scalars().all()
+        )
+        tr_channels = (
+            (await s.execute(select(TriviaChannelRow).where(TriviaChannelRow.guild_id == guild_id))).scalars().all()
+        )
+        mc_channels = (
+            (await s.execute(select(MinecraftStatusChannelRow).where(MinecraftStatusChannelRow.guild_id == guild_id)))
+            .scalars()
+            .all()
+        )
+        tr_lists = (await s.execute(select(TriviaListRow).where(TriviaListRow.guild_id == guild_id))).scalars().all()
         tr_questions = (
-            await s.execute(
-                select(TriviaQuestionRow)
-                .where(TriviaQuestionRow.guild_id == guild_id)
-                .order_by(TriviaQuestionRow.list_name, TriviaQuestionRow.local_id)
+            (
+                await s.execute(
+                    select(TriviaQuestionRow)
+                    .where(TriviaQuestionRow.guild_id == guild_id)
+                    .order_by(TriviaQuestionRow.list_name, TriviaQuestionRow.local_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     gs = _build_guild_state(
-        g, host_roles, lfg_channels, lfg_channel_roles,
-        ga_channels, ga_attempts, ga_chances, tr_channels, mc_channels,
+        g,
+        host_roles,
+        lfg_channels,
+        lfg_channel_roles,
+        ga_channels,
+        ga_attempts,
+        ga_chances,
+        tr_channels,
+        mc_channels,
     )
     return gs, _build_lists(tr_lists, tr_questions)

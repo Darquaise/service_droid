@@ -20,9 +20,7 @@ PERM_LABELS: dict[str, str] = {
 }
 
 
-def missing_channel_perms(
-        channel: discord.abc.GuildChannel, *needed: str
-) -> list[str]:
+def missing_channel_perms(channel: discord.abc.GuildChannel, *needed: str) -> list[str]:
     perms = channel.permissions_for(channel.guild.me)
     return [PERM_LABELS.get(p, p) for p in needed if not getattr(perms, p)]
 

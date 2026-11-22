@@ -50,7 +50,7 @@ async def test_invite_is_posted_then_the_cooldown_applies_until_the_clock_passes
 
     first = await invite(e2e, host)
     assert first.original.ephemeral and first.original.deleted, "the placeholder reply is removed again"
-    posted = (await e2e.history(e2e.sandbox.lfg, 5))
+    posted = await e2e.history(e2e.sandbox.lfg, 5)
     invites = [m for m in posted if m.content.startswith(f"{host.mention} is looking for a game!")]
     assert invites and e2e.sandbox.lfg_ping_role.mention in invites[0].content
     assert "anyone up for a round?" in invites[0].content

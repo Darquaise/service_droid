@@ -56,8 +56,11 @@ def _format_question(q: TriviaQuestion) -> str:
 
 class TriviaQuestionPaginatorView(View):
     def __init__(
-            self, ctx: ApplicationContext, list_name: str, questions: list[TriviaQuestion],
-            timeout: float = 120,
+        self,
+        ctx: ApplicationContext,
+        list_name: str,
+        questions: list[TriviaQuestion],
+        timeout: float = 120,
     ):
         super().__init__(timeout=timeout)
         self.ctx = ctx
@@ -98,7 +101,7 @@ class TriviaQuestionPaginatorView(View):
             return discord.Embed(
                 title=f"Trivia list: {self.list_name}",
                 description="**Empty**\nThis list has no questions yet.",
-                colour=0xffd700,
+                colour=0xFFD700,
             )
 
         start, end = self.pages[page]
@@ -108,11 +111,9 @@ class TriviaQuestionPaginatorView(View):
         embed = discord.Embed(
             title=f"Trivia list: {self.list_name}",
             description=f"```\n{body}\n```",
-            colour=0xffd700,
+            colour=0xFFD700,
         )
-        embed.set_footer(
-            text=f"Page {page + 1}/{self._page_count()} • {len(self.questions)} questions"
-        )
+        embed.set_footer(text=f"Page {page + 1}/{self._page_count()} • {len(self.questions)} questions")
         return embed
 
     def _update_button_states(self) -> None:

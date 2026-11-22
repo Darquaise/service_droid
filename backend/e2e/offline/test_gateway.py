@@ -12,8 +12,11 @@ pytestmark = pytest.mark.offline
 
 async def run(fake, *path, user=None, channel=None, **options):
     return await fake.gateway.run_command(
-        guild=fake.guild, channel=channel or fake.general, member=user or fake.player,
-        path=path, options=options,
+        guild=fake.guild,
+        channel=channel or fake.general,
+        member=user or fake.player,
+        path=path,
+        options=options,
     )
 
 
@@ -27,11 +30,16 @@ async def test_plain_reply_is_captured(fake):
 async def test_all_option_kinds_reach_the_callback_converted(fake):
     role = fake.guild.get_role(fakeguild.ADMIN_ROLE_ID)
     response = await run(
-        fake, "kinds", user=fake.admin, who=fake.player, where=fake.quiet, what=role, count=3, unit="days",
+        fake,
+        "kinds",
+        user=fake.admin,
+        who=fake.player,
+        where=fake.quiet,
+        what=role,
+        count=3,
+        unit="days",
     )
-    assert response.original.content == (
-        f"{fake.player.id}|{fake.quiet.id}|{role.id}|3|0.5|days"
-    )
+    assert response.original.content == (f"{fake.player.id}|{fake.quiet.id}|{role.id}|3|0.5|days")
     assert response.original.embeds[0].description == f"by {fake.admin.id}"
     assert not response.original.ephemeral
 
@@ -39,8 +47,13 @@ async def test_all_option_kinds_reach_the_callback_converted(fake):
 async def test_default_member_permissions_are_enforced_like_discord(fake):
     with pytest.raises(pycord.CommandNotAvailable):
         await run(
-            fake, "kinds", user=fake.player, who=fake.player, where=fake.general,
-            what=fake.guild.default_role, count=1,
+            fake,
+            "kinds",
+            user=fake.player,
+            who=fake.player,
+            where=fake.general,
+            what=fake.guild.default_role,
+            count=1,
         )
 
 
@@ -51,8 +64,14 @@ async def test_unknown_and_missing_options_fail_loudly(fake):
         await run(fake, "hello", nonsense=1)
     with pytest.raises(pycord.HarnessError, match="not one of"):
         await run(
-            fake, "kinds", user=fake.admin, who=fake.player, where=fake.general,
-            what=fake.guild.default_role, count=1, unit="weeks",
+            fake,
+            "kinds",
+            user=fake.admin,
+            who=fake.player,
+            where=fake.general,
+            what=fake.guild.default_role,
+            count=1,
+            unit="weeks",
         )
 
 
@@ -83,8 +102,11 @@ async def test_button_click_updates_the_message_in_place(fake):
     assert message.component("next").kind == "button"
 
     click = await fake.gateway.run_component(
-        guild=fake.guild, channel=fake.general, member=fake.player,
-        message=message, component=message.component("next"),
+        guild=fake.guild,
+        channel=fake.general,
+        member=fake.player,
+        message=message,
+        component=message.component("next"),
     )
     assert message.content == "page 2"
     assert message.edits == 1
@@ -96,8 +118,11 @@ async def test_click_by_somebody_else_is_ignored_by_the_view(fake):
     response = await run(fake, "pager")
     message = response.view_message
     click = await fake.gateway.run_component(
-        guild=fake.guild, channel=fake.general, member=fake.admin,
-        message=message, component=message.component("next"),
+        guild=fake.guild,
+        channel=fake.general,
+        member=fake.admin,
+        message=message,
+        component=message.component("next"),
     )
     assert click.callback_type == pycord.RESP_DEFERRED_UPDATE
     assert message.content == "page 1"
@@ -109,8 +134,12 @@ async def test_select_values(fake):
     select = next(c for c in message.components if c.kind == "select")
     assert select.options == ["a", "b"]
     await fake.gateway.run_component(
-        guild=fake.guild, channel=fake.general, member=fake.player,
-        message=message, component=select, values=["b"],
+        guild=fake.guild,
+        channel=fake.general,
+        member=fake.player,
+        message=message,
+        component=select,
+        values=["b"],
     )
     assert message.content == "picked b"
     assert message.components == []
@@ -122,7 +151,11 @@ async def test_a_failing_command_is_reported(fake):
     assert isinstance(caught.value.errors[0], RuntimeError)
 
     response = await fake.gateway.run_command(
-        guild=fake.guild, channel=fake.general, member=fake.player, path=("boom",), options={},
+        guild=fake.guild,
+        channel=fake.general,
+        member=fake.player,
+        path=("boom",),
+        options={},
         expect_error=True,
     )
     assert response.errors
@@ -135,7 +168,11 @@ async def test_stale_component_is_rejected(fake):
     fake.bot._connection._view_store._views.clear()
     with pytest.raises(pycord.HarnessError, match="no view is registered"):
         await fake.gateway.run_component(
-            guild=fake.guild, channel=fake.general, member=fake.player, message=message, component=component,
+            guild=fake.guild,
+            channel=fake.general,
+            member=fake.player,
+            message=message,
+            component=component,
         )
 
 

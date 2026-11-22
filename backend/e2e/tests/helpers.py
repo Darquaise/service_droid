@@ -5,8 +5,18 @@ from cogs.galatron_commands import GALATRON_IMAGE
 from e2e.harness.core import E2E, pool_matches
 
 __all__ = [
-    "GALATRON_IMAGE", "PICK", "add_list", "add_question", "attempt", "bind", "fail", "galatron_text",
-    "pool_matches", "register", "setup_galatron", "win",
+    "GALATRON_IMAGE",
+    "PICK",
+    "add_list",
+    "add_question",
+    "attempt",
+    "bind",
+    "fail",
+    "galatron_text",
+    "pool_matches",
+    "register",
+    "setup_galatron",
+    "win",
 ]
 
 PICK = "Pick a list..."
@@ -46,8 +56,12 @@ async def add_list(e2e: E2E, name: str = "mix") -> None:
 
 
 async def add_question(
-        e2e: E2E, list_name: str = "mix", title: str = "Capital", question: str = "Capital of France?",
-        answer: str = "Paris", context: str = "",
+    e2e: E2E,
+    list_name: str = "mix",
+    title: str = "Capital",
+    question: str = "Capital of France?",
+    answer: str = "Paris",
+    context: str = "",
 ):
     options = {"title": title, "question": question, "answer": answer}
     if context:
@@ -59,10 +73,19 @@ async def add_question(
 
 
 async def bind(
-        e2e: E2E, channel=None, list_name: str = "mix", schedule: str = "0 20 * * *", response: int = 2, **extra,
+    e2e: E2E,
+    channel=None,
+    list_name: str = "mix",
+    schedule: str = "0 20 * * *",
+    response: int = 2,
+    **extra,
 ):
     channel = channel or e2e.sandbox.trivia
     prompt = await e2e.slash(
-        "setting_trivia_set_channel", channel=channel, schedule=schedule, response=response, **extra,
+        "setting_trivia_set_channel",
+        channel=channel,
+        schedule=schedule,
+        response=response,
+        **extra,
     )
     return await e2e.select(prompt, PICK, list_name)

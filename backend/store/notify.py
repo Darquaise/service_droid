@@ -73,7 +73,7 @@ class ChangeListener:
     async def _handle(self, payload: str) -> None:
         try:
             data = json.loads(payload)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             logger.warning("ignoring malformed change payload: %r", payload)
             return
         if data.get("origin") == ORIGIN:

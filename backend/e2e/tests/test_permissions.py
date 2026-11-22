@@ -8,7 +8,14 @@ from e2e.tests.helpers import add_list, add_question, attempt, galatron_text, se
 
 ADMIN_ONLY_PREFIXES = ("setting_", "current_settings_", "commands_")
 ADMIN_ONLY_NAMES = {
-    "galatron_reset", "reset_cooldown", "status", "restart", "shutdown", "reload", "log", "list_guilds",
+    "galatron_reset",
+    "reset_cooldown",
+    "status",
+    "restart",
+    "shutdown",
+    "reload",
+    "log",
+    "list_guilds",
 }
 
 

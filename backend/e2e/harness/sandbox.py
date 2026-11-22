@@ -83,14 +83,20 @@ class Sandbox:
 
     async def text(self, name: str, overwrites: dict | None = None) -> discord.TextChannel:
         channel = await self.guild.create_text_channel(
-            f"{self.name}-{name}", category=self.category, overwrites=overwrites or {}, reason="e2e run",
+            f"{self.name}-{name}",
+            category=self.category,
+            overwrites=overwrites or {},
+            reason="e2e run",
         )
         self._channels.append(channel)
         return channel
 
     async def voice_channel(self, name: str, overwrites: dict | None = None) -> discord.VoiceChannel:
         channel = await self.guild.create_voice_channel(
-            f"{self.name}-{name}", category=self.category, overwrites=overwrites or {}, reason="e2e run",
+            f"{self.name}-{name}",
+            category=self.category,
+            overwrites=overwrites or {},
+            reason="e2e run",
         )
         self._channels.append(channel)
         return channel
@@ -119,7 +125,10 @@ class Sandbox:
 
     @staticmethod
     async def eventually(
-            predicate: Callable[[], Any], what: str = "condition", timeout: float = 10.0, interval: float = 0.05,
+        predicate: Callable[[], Any],
+        what: str = "condition",
+        timeout: float = 10.0,
+        interval: float = 0.05,
     ) -> None:
         """The gateway cache catches up with REST changes a moment later; poll until it has.
         ``predicate`` may be async (e.g. a REST fetch) — then pick an ``interval`` that respects rate limits."""

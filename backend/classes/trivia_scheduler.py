@@ -61,8 +61,11 @@ class TriviaScheduler:
         self.bot.loop.create_task(trivia_repo.delete_pending(channel_id))
 
     def _note_perm_failure(
-            self, channel_id: int, guild: discord.Guild,
-            config: TriviaChannelConfig, missing: list[str],
+        self,
+        channel_id: int,
+        guild: discord.Guild,
+        config: TriviaChannelConfig,
+        missing: list[str],
     ) -> None:
         # Detached: dissolving cancels this channel's tasks, one of which is the caller.
         if channel_id in self._perm_failures:
@@ -74,8 +77,11 @@ class TriviaScheduler:
         )
 
     async def _handle_perm_failure(
-            self, channel_id: int, guild: discord.Guild,
-            config: TriviaChannelConfig, missing: list[str],
+        self,
+        channel_id: int,
+        guild: discord.Guild,
+        config: TriviaChannelConfig,
+        missing: list[str],
     ) -> None:
         try:
             config.perm_fail_count += 1
@@ -94,10 +100,9 @@ class TriviaScheduler:
         finally:
             self._perm_failures.discard(channel_id)
 
-    async def _dissolve_channel(
-            self, channel_id: int, guild: discord.Guild, missing: list[str]
-    ) -> None:
+    async def _dissolve_channel(self, channel_id: int, guild: discord.Guild, missing: list[str]) -> None:
         from .guild import Guild
+
         _log(f"channel {channel_id}: missing {missing}, dissolving trivia mapping")
         # Stop the loop before awaiting, so a later tick can't queue a second dissolve.
         self.cancel_channel(channel_id)
@@ -174,7 +179,7 @@ class TriviaScheduler:
         embed = discord.Embed(
             title=f"Answer: {pending['title']}",
             description=description,
-            colour=0x2ecc71,
+            colour=0x2ECC71,
         )
         try:
             await asyncio.shield(channel.send(embed=embed))
@@ -224,9 +229,7 @@ class TriviaScheduler:
             _log(f"channel {channel_id}: unknown mode `{config.mode}`, skipping")
 
     @staticmethod
-    def _pick_question(
-            config: TriviaChannelConfig, questions: list[TriviaQuestion]
-    ) -> TriviaQuestion:
+    def _pick_question(config: TriviaChannelConfig, questions: list[TriviaQuestion]) -> TriviaQuestion:
         if config.order == ORDER_SEQUENTIAL:
             return questions[config.next_index(len(questions))]
         return random.choice(questions)
@@ -234,13 +237,16 @@ class TriviaScheduler:
     # -- TIMED mode ----------------------------------------------------------
 
     async def _fire_timed(
-            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion,
+        self,
+        channel: discord.TextChannel,
+        config: TriviaChannelConfig,
+        question: TriviaQuestion,
     ) -> None:
         wording = random.choice(question.question) if question.question else ""
         embed = discord.Embed(
             title=f"Trivia: {question.title}",
             description=wording,
-            colour=0xffd700,
+            colour=0xFFD700,
         )
         embed.set_footer(text=f"Answer in {config.response}s")
         await channel.send(embed=embed)
@@ -265,7 +271,11 @@ class TriviaScheduler:
         self._answer_tasks[channel.id] = task
 
     async def _reveal_answer(
-            self, channel: discord.TextChannel, config: TriviaChannelConfig, question: TriviaQuestion, wording: str,
+        self,
+        channel: discord.TextChannel,
+        config: TriviaChannelConfig,
+        question: TriviaQuestion,
+        wording: str,
     ) -> None:
         try:
             await asyncio.sleep(config.response)
@@ -292,7 +302,7 @@ class TriviaScheduler:
         embed = discord.Embed(
             title=f"Answer: {question.title}",
             description=description,
-            colour=0x2ecc71,
+            colour=0x2ECC71,
         )
         try:
             # Shield: if a cancel arrives mid-send, wait for the send to

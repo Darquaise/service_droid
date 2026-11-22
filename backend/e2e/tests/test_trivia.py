@@ -8,6 +8,7 @@ from store.models import TriviaPendingRow
 
 from e2e.tests.helpers import PICK, add_list, add_question, bind
 
+
 async def test_lists_and_questions_are_persisted(e2e):
     await add_list(e2e)
     again = await e2e.slash("setting_trivia_list_add", name="mix")
@@ -58,16 +59,16 @@ async def test_channel_binding_is_persisted_and_updatable(e2e):
     assert "is now bound to list **mix**" in bound.source.content
     channel_id = e2e.sandbox.trivia.id
     await e2e.assert_persisted(
-        lambda g: (g.trivia_channels[channel_id].schedule, g.trivia_channels[channel_id].response)
-        == ("*/30 * * * *", 45)
+        lambda g: (
+            (g.trivia_channels[channel_id].schedule, g.trivia_channels[channel_id].response) == ("*/30 * * * *", 45)
+        )
     )
     assert channel_id in e2e.bot.trivia_scheduler._question_tasks, "binding starts the channel's loop"
 
     await e2e.slash("setting_trivia_update_schedule", channel=e2e.sandbox.trivia, schedule="0 18 * * 5")
     await e2e.slash("setting_trivia_update_response", channel=e2e.sandbox.trivia, response=90)
     await e2e.assert_persisted(
-        lambda g: (g.trivia_channels[channel_id].schedule, g.trivia_channels[channel_id].response)
-        == ("0 18 * * 5", 90)
+        lambda g: (g.trivia_channels[channel_id].schedule, g.trivia_channels[channel_id].response) == ("0 18 * * 5", 90)
     )
 
     shown = await e2e.slash("setting_trivia_show_mappings")
@@ -91,12 +92,18 @@ async def test_binding_validates_input_and_channel_permissions(e2e):
     assert "not a valid cron expression" in cron.original.content
 
     seconds = await e2e.slash(
-        "setting_trivia_set_channel", channel=e2e.sandbox.trivia, schedule="0 20 * * *", response=0,
+        "setting_trivia_set_channel",
+        channel=e2e.sandbox.trivia,
+        schedule="0 20 * * *",
+        response=0,
     )
     assert "greater than 0" in seconds.original.content
 
     embed = await e2e.slash(
-        "setting_trivia_set_channel", channel=e2e.sandbox.trivia_no_embed, schedule="0 20 * * *", response=5,
+        "setting_trivia_set_channel",
+        channel=e2e.sandbox.trivia_no_embed,
+        schedule="0 20 * * *",
+        response=5,
     )
     assert "Embed Links" in embed.original.content
     assert e2e.g.trivia_channels == {}

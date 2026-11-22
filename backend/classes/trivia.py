@@ -27,12 +27,26 @@ class TriviaQuestion:
 
 class TriviaChannelConfig:
     __slots__ = (
-        "channel_id", "list_name", "schedule", "response", "mode", "order", "_next_index", "pending", "perm_fail_count"
+        "channel_id",
+        "list_name",
+        "schedule",
+        "response",
+        "mode",
+        "order",
+        "_next_index",
+        "pending",
+        "perm_fail_count",
     )
 
     def __init__(
-            self, channel_id: int, list_name: str, schedule: str, response: int,
-            mode: str = MODE_TIMED, order: str = ORDER_RANDOM, next_index: int = 0,
+        self,
+        channel_id: int,
+        list_name: str,
+        schedule: str,
+        response: int,
+        mode: str = MODE_TIMED,
+        order: str = ORDER_RANDOM,
+        next_index: int = 0,
     ):
         self.channel_id = channel_id
         self.list_name = list_name
@@ -110,22 +124,16 @@ class TriviaHandler:
         return cls(guild, {})
 
     @classmethod
-    def load_from_state(
-            cls, bot: discord.Client, trivia_state: dict[int, dict[str, list["QuestionData"]]]
-    ) -> None:
+    def load_from_state(cls, bot: discord.Client, trivia_state: dict[int, dict[str, list["QuestionData"]]]) -> None:
         for guild_id, lists_data in trivia_state.items():
             guild = bot.get_guild(guild_id)
             if guild is not None:
                 cls.replace_for_guild(guild, lists_data)
 
     @classmethod
-    def replace_for_guild(
-            cls, guild: discord.Guild, lists_data: dict[str, list["QuestionData"]]
-    ) -> "TriviaHandler":
+    def replace_for_guild(cls, guild: discord.Guild, lists_data: dict[str, list["QuestionData"]]) -> "TriviaHandler":
         lists: dict[str, list[TriviaQuestion]] = {
-            name: [
-                TriviaQuestion(q.local_id, q.title, q.question, q.answer, q.answer_context) for q in questions
-            ]
+            name: [TriviaQuestion(q.local_id, q.title, q.question, q.answer, q.answer_context) for q in questions]
             for name, questions in lists_data.items()
         }
         return cls(guild, lists)
@@ -151,7 +159,7 @@ class TriviaHandler:
         return True
 
     async def add_question(
-            self, list_name: str, title: str, question: list[str], answer: str, answer_context: str
+        self, list_name: str, title: str, question: list[str], answer: str, answer_context: str
     ) -> TriviaQuestion | None:
         if list_name not in self.lists:
             return None

@@ -4,8 +4,17 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid, ApplicationContext, TriviaHandler, TriviaChannelConfig, TriviaQuestionPaginatorView, trivia_modes,
-    TriviaScheduler, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
+    ServiceDroid,
+    ApplicationContext,
+    TriviaHandler,
+    TriviaChannelConfig,
+    TriviaQuestionPaginatorView,
+    trivia_modes,
+    TriviaScheduler,
+    build_command_listing_embed,
+    option,
+    missing_channel_perms,
+    format_missing_perms,
 )
 
 CRON_HELP = (
@@ -30,29 +39,25 @@ def _refresh_scheduler(bot: ServiceDroid, channel_id: int, config: TriviaChannel
         scheduler.schedule_channel(channel_id, config)
 
 
-MODE_CHOICES = [
-    discord.OptionChoice(name=trivia_modes.MODE_DISPLAY[m], value=m)
-    for m in trivia_modes.SELECTABLE_MODES
-]
-ORDER_CHOICES = [
-    discord.OptionChoice(name=trivia_modes.ORDER_DISPLAY[o], value=o)
-    for o in trivia_modes.ALL_ORDERS
-]
+MODE_CHOICES = [discord.OptionChoice(name=trivia_modes.MODE_DISPLAY[m], value=m) for m in trivia_modes.SELECTABLE_MODES]
+ORDER_CHOICES = [discord.OptionChoice(name=trivia_modes.ORDER_DISPLAY[o], value=o) for o in trivia_modes.ALL_ORDERS]
 
 
 class TriviaListSelectView(discord.ui.View):
     def __init__(
-            self, ctx: ApplicationContext, list_names: list[str], on_select: OnSelectCallback,
-            placeholder: str = "Pick a list...", timeout: float = 120,
+        self,
+        ctx: ApplicationContext,
+        list_names: list[str],
+        on_select: OnSelectCallback,
+        placeholder: str = "Pick a list...",
+        timeout: float = 120,
     ):
         super().__init__(timeout=timeout)
         self.ctx = ctx
         self.on_select = on_select
 
         options = [discord.SelectOption(label=name, value=name) for name in list_names]
-        self.select = discord.ui.Select(
-            placeholder=placeholder, min_values=1, max_values=1, options=options
-        )
+        self.select = discord.ui.Select(placeholder=placeholder, min_values=1, max_values=1, options=options)
         self.select.callback = self._on_select
         self.add_item(self.select)
 
@@ -69,8 +74,9 @@ class TriviaListSelectView(discord.ui.View):
 
 
 async def _prompt_list_select(
-        ctx: ApplicationContext, on_select: OnSelectCallback,
-        prompt: str = "Pick a list:",
+    ctx: ApplicationContext,
+    on_select: OnSelectCallback,
+    prompt: str = "Pick a list:",
 ) -> None:
     handler = TriviaHandler.get_or_create(ctx.guild)
     list_names = handler.get_list_names()
@@ -95,14 +101,15 @@ class TriviaSettingsCog(commands.Cog):
             return await ctx.respond("There are no trivia lists yet.", ephemeral=True)
 
         lines = [f"• **{name}** — {len(questions)} questions" for name, questions in handler.lists.items()]
-        embed = discord.Embed(title="Trivia lists", description="\n".join(lines), color=0xffd700)
+        embed = discord.Embed(title="Trivia lists", description="\n".join(lines), color=0xFFD700)
         return await ctx.respond(embed=embed, ephemeral=True)
 
     @discord.slash_command(description="Create a new, empty trivia list.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_list_add(
-            self, ctx: ApplicationContext,
-            name: str = option(str, "Name of the new list"),
+        self,
+        ctx: ApplicationContext,
+        name: str = option(str, "Name of the new list"),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
         if not await handler.add_list(name):
@@ -116,9 +123,7 @@ class TriviaSettingsCog(commands.Cog):
 
         async def on_select(interaction: discord.Interaction, list_name: str):
             guild = ctx.g
-            referencing_channels = [
-                cid for cid, cfg in guild.trivia_channels.items() if cfg.list_name == list_name
-            ]
+            referencing_channels = [cid for cid, cfg in guild.trivia_channels.items() if cfg.list_name == list_name]
             if referencing_channels:
                 mentions = ", ".join(f"<#{cid}>" for cid in referencing_channels)
                 return await interaction.response.edit_message(
@@ -130,9 +135,7 @@ class TriviaSettingsCog(commands.Cog):
                 )
 
             await handler.remove_list(list_name)
-            return await interaction.response.edit_message(
-                content=f"List **{list_name}** has been deleted.", view=None
-            )
+            return await interaction.response.edit_message(content=f"List **{list_name}** has been deleted.", view=None)
 
         await _prompt_list_select(ctx, on_select, "Which list should be removed?")
 
@@ -155,11 +158,12 @@ class TriviaSettingsCog(commands.Cog):
     @discord.slash_command(description="Add a new question to a list.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_add(
-            self, ctx: ApplicationContext,
-            title: str = option(str, "Short title shown on the question card"),
-            question: str = option(str, "The question text (further wordings via /setting_trivia_add_variation)"),
-            answer: str = option(str, "The correct answer"),
-            answer_context: str = option(str, "Optional explanation shown next to the answer", default=""),
+        self,
+        ctx: ApplicationContext,
+        title: str = option(str, "Short title shown on the question card"),
+        question: str = option(str, "The question text (further wordings via /setting_trivia_add_variation)"),
+        answer: str = option(str, "The correct answer"),
+        answer_context: str = option(str, "Optional explanation shown next to the answer", default=""),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
@@ -167,7 +171,8 @@ class TriviaSettingsCog(commands.Cog):
             new_q = await handler.add_question(list_name, title, [question], answer, answer_context)
             if new_q is None:
                 return await interaction.response.edit_message(
-                    content=f"List **{list_name}** no longer exists.", view=None,
+                    content=f"List **{list_name}** no longer exists.",
+                    view=None,
                 )
             return await interaction.response.edit_message(
                 content=f"Question `{new_q.id}` added to list **{list_name}**.",
@@ -181,9 +186,10 @@ class TriviaSettingsCog(commands.Cog):
     )
     @discord.default_permissions(administrator=True)
     async def setting_trivia_add_variation(
-            self, ctx: ApplicationContext,
-            trivia_id: int = option(int, "ID of the question (see /setting_trivia_list_show)"),
-            wording: str = option(str, "Alternative wording of the same question"),
+        self,
+        ctx: ApplicationContext,
+        trivia_id: int = option(int, "ID of the question (see /setting_trivia_list_show)"),
+        wording: str = option(str, "Alternative wording of the same question"),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
@@ -207,8 +213,9 @@ class TriviaSettingsCog(commands.Cog):
     @discord.slash_command(description="Remove a question from a list.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_remove(
-            self, ctx: ApplicationContext,
-            trivia_id: int = option(int, "ID of the question (see /setting_trivia_list_show)"),
+        self,
+        ctx: ApplicationContext,
+        trivia_id: int = option(int, "ID of the question (see /setting_trivia_list_show)"),
     ):
         handler = TriviaHandler.get_or_create(ctx.guild)
 
@@ -226,19 +233,18 @@ class TriviaSettingsCog(commands.Cog):
         await _prompt_list_select(ctx, on_select, "Which list should the question be removed from?")
 
     # Channel mapping
-    @discord.slash_command(
-        description="Bind a channel to a trivia list with its own cron schedule and response time."
-    )
+    @discord.slash_command(description="Bind a channel to a trivia list with its own cron schedule and response time.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_set_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Channel that should run trivia"),
-            schedule: str = option(str, "5-field cron expression in UTC, e.g. `0 20 * * *` runs daily at 20:00 UTC"),
-            response: int = option(int, "Seconds to wait before posting the answer"),
-            mode: str = option(
-                str, "How questions are resolved", choices=MODE_CHOICES, default=trivia_modes.MODE_TIMED),
-            order: str = option(
-                str, "How the next question is picked", choices=ORDER_CHOICES, default=trivia_modes.ORDER_RANDOM),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Channel that should run trivia"),
+        schedule: str = option(str, "5-field cron expression in UTC, e.g. `0 20 * * *` runs daily at 20:00 UTC"),
+        response: int = option(int, "Seconds to wait before posting the answer"),
+        mode: str = option(str, "How questions are resolved", choices=MODE_CHOICES, default=trivia_modes.MODE_TIMED),
+        order: str = option(
+            str, "How the next question is picked", choices=ORDER_CHOICES, default=trivia_modes.ORDER_RANDOM
+        ),
     ):
         if not TriviaChannelConfig.is_valid_cron(schedule):
             return await ctx.respond(
@@ -285,7 +291,7 @@ class TriviaSettingsCog(commands.Cog):
         cron_embed = discord.Embed(
             title="Cron schedule reference",
             description=CRON_HELP,
-            color=0xffd700,
+            color=0xFFD700,
         )
         return await ctx.respond(
             f"Pick the list to use in {channel.mention}:",
@@ -297,19 +303,16 @@ class TriviaSettingsCog(commands.Cog):
     @discord.slash_command(description="Remove a channel's trivia mapping.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_reset_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Channel to unbind from trivia"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Channel to unbind from trivia"),
     ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
-            return await ctx.respond(
-                f"{channel.mention} is not a trivia channel.", ephemeral=True
-            )
+            return await ctx.respond(f"{channel.mention} is not a trivia channel.", ephemeral=True)
         await guild.remove_trivia_channel(channel.id)
         _refresh_scheduler(self.bot, channel.id, None)
-        return await ctx.respond(
-            f"Trivia mapping for {channel.mention} removed.", ephemeral=True
-        )
+        return await ctx.respond(f"Trivia mapping for {channel.mention} removed.", ephemeral=True)
 
     @discord.slash_command(description="Show all channel→list mappings.")
     @discord.default_permissions(administrator=True)
@@ -328,23 +331,20 @@ class TriviaSettingsCog(commands.Cog):
                 f"   Mode: {mode_name} | Order: {order_name}\n"
                 f"   Next: {cfg.next_fire_discord()}"
             )
-        embed = discord.Embed(
-            title="Trivia channel mappings", description="\n\n".join(lines), color=0xffd700
-        )
+        embed = discord.Embed(title="Trivia channel mappings", description="\n\n".join(lines), color=0xFFD700)
         return await ctx.respond(embed=embed, ephemeral=True)
 
     @discord.slash_command(description="Update the schedule of an existing trivia channel.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_update_schedule(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Trivia channel to update"),
-            schedule: str = option(str, "New 5-field cron expression (UTC)"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Trivia channel to update"),
+        schedule: str = option(str, "New 5-field cron expression (UTC)"),
     ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
-            return await ctx.respond(
-                f"{channel.mention} is not a trivia channel.", ephemeral=True
-            )
+            return await ctx.respond(f"{channel.mention} is not a trivia channel.", ephemeral=True)
         if not TriviaChannelConfig.is_valid_cron(schedule):
             return await ctx.respond(
                 f"`{schedule}` is not a valid cron expression.\n\n{CRON_HELP}",
@@ -354,36 +354,34 @@ class TriviaSettingsCog(commands.Cog):
         config.schedule = schedule
         await guild.update_trivia_channel(config)
         _refresh_scheduler(self.bot, channel.id, config)
-        return await ctx.respond(
-            f"Schedule for {channel.mention} is now `{schedule}`.", ephemeral=True
-        )
+        return await ctx.respond(f"Schedule for {channel.mention} is now `{schedule}`.", ephemeral=True)
 
     @discord.slash_command(description="Update the response time of an existing trivia channel.")
     @discord.default_permissions(administrator=True)
     async def setting_trivia_update_response(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Trivia channel to update"),
-            response: int = option(int, "New seconds to wait before the answer is posted"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Trivia channel to update"),
+        response: int = option(int, "New seconds to wait before the answer is posted"),
     ):
         guild = ctx.g
         if channel.id not in guild.trivia_channels:
-            return await ctx.respond(
-                f"{channel.mention} is not a trivia channel.", ephemeral=True
-            )
+            return await ctx.respond(f"{channel.mention} is not a trivia channel.", ephemeral=True)
         if response <= 0:
             return await ctx.respond("Response time must be greater than 0 seconds.", ephemeral=True)
         config = guild.trivia_channels[channel.id]
         config.response = response
         await guild.update_trivia_channel(config)
         _refresh_scheduler(self.bot, channel.id, config)
-        return await ctx.respond(
-            f"Response time for {channel.mention} is now {response}s.", ephemeral=True
-        )
+        return await ctx.respond(f"Response time for {channel.mention} is now {response}s.", ephemeral=True)
 
     @discord.slash_command(description="List Trivia-Setting commands.")
     @discord.default_permissions(administrator=True)
     async def commands_trivia(self, ctx: ApplicationContext):
         embed = await build_command_listing_embed(
-            self.bot, ctx.guild, "Trivia commands", (TriviaSettingsCog,),
+            self.bot,
+            ctx.guild,
+            "Trivia commands",
+            (TriviaSettingsCog,),
         )
         await ctx.respond(embed=embed, ephemeral=True)

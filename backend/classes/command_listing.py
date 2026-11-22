@@ -4,7 +4,10 @@ import discord
 
 
 async def build_command_listing_embed(
-        bot: discord.Bot, guild: discord.Guild, title: str, cog_classes: tuple[type, ...],
+    bot: discord.Bot,
+    guild: discord.Guild,
+    title: str,
+    cog_classes: tuple[type, ...],
 ) -> discord.Embed:
     selected: dict[str, discord.SlashCommand] = {}
     for c in bot.application_commands:
@@ -30,4 +33,4 @@ async def build_command_listing_embed(
             mention = f"</{name}:{cid}>" if cid else f"/{name}"
             lines.append(f"{mention} — {c.description or '*(no description)*'}")
         description = "\n".join(lines)
-    return discord.Embed(title=title, description=description, colour=0xffd700)
+    return discord.Embed(title=title, description=description, colour=0xFFD700)

@@ -3,8 +3,16 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid, ApplicationContext, Guild, MinecraftStatusConfig, MinecraftStatusUpdater,
-    build_command_listing_embed, fetch_player_count, option, missing_channel_perms, format_missing_perms,
+    ServiceDroid,
+    ApplicationContext,
+    Guild,
+    MinecraftStatusConfig,
+    MinecraftStatusUpdater,
+    build_command_listing_embed,
+    fetch_player_count,
+    option,
+    missing_channel_perms,
+    format_missing_perms,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,15 +38,15 @@ class MinecraftCog(commands.Cog):
     def cog_unload(self):
         self.updater.cancel_all()
 
-    @discord.slash_command(
-        description="Show a Minecraft server's status (online count) in a voice channel's name."
-    )
+    @discord.slash_command(description="Show a Minecraft server's status (online count) in a voice channel's name.")
     @discord.default_permissions(administrator=True)
     async def setting_minecraft_set_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.VoiceChannel = option(
-                discord.VoiceChannel, "Voice channel whose name mirrors the server status"),
-            address: str = option(str, "Server address, e.g. `mc.example.com` or `host:25565`"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.VoiceChannel = option(
+            discord.VoiceChannel, "Voice channel whose name mirrors the server status"
+        ),
+        address: str = option(str, "Server address, e.g. `mc.example.com` or `host:25565`"),
     ):
         address = address.strip()
         if not address:
@@ -70,15 +78,13 @@ class MinecraftCog(commands.Cog):
     @discord.slash_command(description="Stop mirroring a Minecraft server in a voice channel.")
     @discord.default_permissions(administrator=True)
     async def setting_minecraft_remove_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.VoiceChannel = option(
-                discord.VoiceChannel, "Voice channel to stop updating"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.VoiceChannel = option(discord.VoiceChannel, "Voice channel to stop updating"),
     ):
         guild = ctx.g
         if channel.id not in guild.minecraft_channels:
-            return await ctx.respond(
-                f"{channel.mention} is not mirroring a Minecraft server.", ephemeral=True
-            )
+            return await ctx.respond(f"{channel.mention} is not mirroring a Minecraft server.", ephemeral=True)
         await guild.remove_minecraft_channel(channel.id)
         self.updater.cancel_channel(channel.id)
         return await ctx.respond(
@@ -95,15 +101,16 @@ class MinecraftCog(commands.Cog):
             return await ctx.respond("No Minecraft status channels have been set yet.", ephemeral=True)
 
         lines = [f"<#{cid}> → `{cfg.address}`" for cid, cfg in guild.minecraft_channels.items()]
-        embed = discord.Embed(
-            title="Minecraft status channels", description="\n".join(lines), color=0x2ecc71
-        )
+        embed = discord.Embed(title="Minecraft status channels", description="\n".join(lines), color=0x2ECC71)
         return await ctx.respond(embed=embed, ephemeral=True)
 
     @discord.slash_command(description="List Minecraft-Setting commands.")
     @discord.default_permissions(administrator=True)
     async def commands_minecraft(self, ctx: ApplicationContext):
         embed = await build_command_listing_embed(
-            self.bot, ctx.guild, "Minecraft commands", (MinecraftCog,),
+            self.bot,
+            ctx.guild,
+            "Minecraft commands",
+            (MinecraftCog,),
         )
         await ctx.respond(embed=embed, ephemeral=True)

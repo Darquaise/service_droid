@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Pre-commit: the fast checks when the commit touches the bot — ruff, the clock rule, the offline
+# Pre-commit: the fast checks when the commit touches the bot — ruff format (staged files), ruff, the clock rule, the offline
 # harness self-tests. The live e2e suite runs in pre-push (or by hand: scripts/e2e.sh).
 # Activate once per clone:   git config core.hooksPath .githooks
 # Skip for a single commit:  git commit --no-verify
@@ -22,6 +22,22 @@ fail() {
   echo "To commit anyway:  git commit --no-verify"
   exit 1
 }
+
+echo "▶ pre-commit: ruff format"
+# Staged python files are formatted and staged again. A file that also has unstaged changes would drag them into the
+# commit, so that case stops here instead.
+py_files="$(git diff --cached --name-only --diff-filter=ACMR -- 'backend/*.py' | sed 's|^backend/||')"
+if [ -n "$py_files" ]; then
+  partial="$(git diff --name-only -- 'backend/*.py' | sed 's|^backend/||' | grep -Fxf <(printf '%s\n' "$py_files") || true)"
+  if [ -n "$partial" ]; then
+    echo "$partial"
+    fail "these files have unstaged changes on top of the staged ones - stage or stash them, then commit again."
+  fi
+  # shellcheck disable=SC2086
+  ( cd "$ROOT/backend" && printf '%s\n' "$py_files" | tr '\n' '\0' | xargs -0 uv run ruff format --force-exclude -q ) \
+    || fail "ruff format failed."
+  ( cd "$ROOT/backend" && printf '%s\n' "$py_files" | tr '\n' '\0' | xargs -0 git add -- )
+fi
 
 echo "▶ pre-commit: ruff"
 ( cd "$ROOT/backend" && uv run ruff check ) || fail "ruff found problems."

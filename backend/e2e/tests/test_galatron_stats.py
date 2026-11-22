@@ -26,7 +26,7 @@ async def test_stats_commands_only_work_in_the_hunting_channel(e2e):
         assert pool_matches(galatron_text.WRONG_CHANNEL[register(e2e)], response.original.content), command
 
 
-async def test_leaderboard_primes_the_mentions_then_shows_embeds(e2e):
+async def test_leaderboard_is_a_components_v2_message_with_the_mentions(e2e):
     await setup_galatron(e2e)
     bearer = e2e.players[0]
     await win(e2e, bearer)
@@ -34,10 +34,10 @@ async def test_leaderboard_primes_the_mentions_then_shows_embeds(e2e):
     response = await e2e.slash("galatron_leaderboard", user=bearer, in_channel=e2e.sandbox.galatron)
 
     message = response.original
-    assert message.edits == 1, "mentions are posted first, then edited into embeds"
-    assert message.content == ""
-    assert "Galatron Leaderboard" in message.embeds[0].title
-    assert bearer.mention in message.embeds[0].description
+    assert message.is_v2 and message.edits == 0, "one message, no priming edit"
+    assert message.content == "" and not message.embeds
+    assert "Galatron Leaderboard" in message.text
+    assert bearer.mention in message.text
     assert message.component("⬅️").disabled and message.component("➡️").disabled
 
 
@@ -50,8 +50,8 @@ async def test_stats_table_lists_everyone_who_tried(e2e):
     response = await e2e.slash("galatron_stats", user=first, in_channel=e2e.sandbox.galatron)
 
     text = response.original.text
-    assert first.name in text and second.name in text
-    assert "Tries" in text and "Success" in text
+    assert first.mention in text and second.mention in text
+    assert "tries" in text and "won" in text
 
 
 async def test_total_stats_use_the_chance_of_their_time(e2e):

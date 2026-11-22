@@ -39,13 +39,14 @@ class FakeCog(commands.Cog):
     @discord.slash_command(description="all option kinds")
     @discord.default_permissions(administrator=True)
     async def kinds(
-            self, ctx: discord.ApplicationContext,
-            who: discord.Member = discord.Option(discord.Member, "member"),
-            where: discord.TextChannel = discord.Option(discord.TextChannel, "channel"),
-            what: discord.Role = discord.Option(discord.Role, "role"),
-            count: int = discord.Option(int, "count"),
-            ratio: float = discord.Option(float, "ratio", default=0.5),
-            unit: str = discord.Option(str, "unit", choices=["hours", "days"], default="hours"),
+        self,
+        ctx: discord.ApplicationContext,
+        who: discord.Member = discord.Option(discord.Member, "member"),
+        where: discord.TextChannel = discord.Option(discord.TextChannel, "channel"),
+        what: discord.Role = discord.Option(discord.Role, "role"),
+        count: int = discord.Option(int, "count"),
+        ratio: float = discord.Option(float, "ratio", default=0.5),
+        unit: str = discord.Option(str, "unit", choices=["hours", "days"], default="hours"),
     ):
         await ctx.respond(
             f"{who.id}|{where.id}|{what.id}|{count}|{ratio}|{unit}",

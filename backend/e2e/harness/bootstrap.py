@@ -26,7 +26,7 @@ class BotHandle:
         except RuntimeError:
             # py-cord's reconnect loop races close() and hits the already closed aiohttp session
             pass
-        except (asyncio.TimeoutError, asyncio.CancelledError, discord.DiscordException):
+        except asyncio.TimeoutError, asyncio.CancelledError, discord.DiscordException:
             logger.warning("bot task did not end cleanly")
 
 

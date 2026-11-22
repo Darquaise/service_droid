@@ -25,18 +25,29 @@ logger = logging.getLogger(__name__)
 
 class Guild(GuildBase):
     __slots__ = (
-        "host_roles", "lfg_channels",
-        "galatron_role", "galatron_channels", "galatron_log",
-        "galatron_chances", "galatron_register",
-        "trivia_channels", "minecraft_channels",
+        "host_roles",
+        "lfg_channels",
+        "galatron_role",
+        "galatron_channels",
+        "galatron_log",
+        "galatron_chances",
+        "galatron_register",
+        "trivia_channels",
+        "minecraft_channels",
     )
 
     def __init__(
-            self, guild: discord.Guild, host_roles: dict[int, LFGHost], lfg_channels: dict[int, LFGChannel],
-            galatron_role: discord.Role | None, galatron_channels: list[discord.TextChannel],
-            galatron_log: GalatronLog, galatron_chances: SettingTimeline,
-            galatron_register: Register,
-            trivia_channels: dict[int, TriviaChannelConfig], minecraft_channels: dict[int, MinecraftStatusConfig],
+        self,
+        guild: discord.Guild,
+        host_roles: dict[int, LFGHost],
+        lfg_channels: dict[int, LFGChannel],
+        galatron_role: discord.Role | None,
+        galatron_channels: list[discord.TextChannel],
+        galatron_log: GalatronLog,
+        galatron_chances: SettingTimeline,
+        galatron_register: Register,
+        trivia_channels: dict[int, TriviaChannelConfig],
+        minecraft_channels: dict[int, MinecraftStatusConfig],
     ):
         super().__init__(guild)
 
@@ -190,9 +201,16 @@ class Guild(GuildBase):
     def from_state(cls, guild: discord.Guild, gs: "GuildState | None"):
         if gs is None:
             return cls(
-                guild, {}, {}, None, [], GalatronLog(guild),
+                guild,
+                {},
+                {},
+                None,
+                [],
+                GalatronLog(guild),
                 SettingTimeline(DEFAULT_CHANCE),
-                random.choice(list(Register)), {}, {},
+                random.choice(list(Register)),
+                {},
+                {},
             )
 
         # lfg stuff
@@ -214,12 +232,14 @@ class Guild(GuildBase):
         # galatron stuff
         galatron_role = guild.get_role(gs.galatron_role_id) if gs.galatron_role_id else None
         galatron_channels = [
-            c for c in (guild.get_channel(cid) for cid in gs.galatron_channels)
-            if isinstance(c, discord.TextChannel)
+            c for c in (guild.get_channel(cid) for cid in gs.galatron_channels) if isinstance(c, discord.TextChannel)
         ]
         galatron_log = GalatronLog(
             guild,
-            [GalatronAttempt(a.member_id, datetime.fromtimestamp(a.occurred_at, timezone.utc), a.won) for a in gs.galatron_attempts],
+            [
+                GalatronAttempt(a.member_id, datetime.fromtimestamp(a.occurred_at, timezone.utc), a.won)
+                for a in gs.galatron_attempts
+            ],
         )
         galatron_chances = SettingTimeline(
             DEFAULT_CHANCE,
@@ -230,19 +250,31 @@ class Guild(GuildBase):
         # trivia stuff
         trivia_channels = {
             tc.channel_id: TriviaChannelConfig(
-                tc.channel_id, tc.list_name, tc.schedule, tc.response,
-                tc.mode, tc.order, next_index=tc.next_index,
+                tc.channel_id,
+                tc.list_name,
+                tc.schedule,
+                tc.response,
+                tc.mode,
+                tc.order,
+                next_index=tc.next_index,
             )
             for tc in gs.trivia_channels
         }
 
         # minecraft stuff
         minecraft_channels = {
-            mc.channel_id: MinecraftStatusConfig(mc.channel_id, mc.address)
-            for mc in gs.minecraft_channels
+            mc.channel_id: MinecraftStatusConfig(mc.channel_id, mc.address) for mc in gs.minecraft_channels
         }
 
         return cls(
-            guild, host_roles, lfg_channels, galatron_role, galatron_channels, galatron_log,
-            galatron_chances, galatron_register, trivia_channels, minecraft_channels,
+            guild,
+            host_roles,
+            lfg_channels,
+            galatron_role,
+            galatron_channels,
+            galatron_log,
+            galatron_chances,
+            galatron_register,
+            trivia_channels,
+            minecraft_channels,
         )

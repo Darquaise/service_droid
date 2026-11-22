@@ -144,20 +144,19 @@ async def _guild_autocomplete(ctx: discord.AutocompleteContext) -> list[discord.
 
 
 async def shutdown(bot: ServiceDroid):
-    activity = discord.Activity(name='shutting down...', type=discord.ActivityType.playing)
+    activity = discord.Activity(name="shutting down...", type=discord.ActivityType.playing)
     await bot.change_presence(activity=activity)
     await bot.close()
 
 
 async def restart(bot: ServiceDroid):
-    activity = discord.Activity(name='restarting...', type=discord.ActivityType.playing)
+    activity = discord.Activity(name="restarting...", type=discord.ActivityType.playing)
     await bot.change_presence(activity=activity)
     bot.exit_code = 42
     await bot.close()
 
 
 class DevelopmentCog(commands.Cog):
-
     def __init__(self, bot: ServiceDroid):
         self.bot = bot
         logger.debug("dev cog loaded")
@@ -185,12 +184,14 @@ class DevelopmentCog(commands.Cog):
     )
     @discord.default_permissions(administrator=True)
     async def reload(
-            self,
-            ctx: ApplicationContext,
-            guild_id: str = option(
-                str, "Server (defaults to this one)", autocomplete=_guild_autocomplete,
-                default=None,
-            ),
+        self,
+        ctx: ApplicationContext,
+        guild_id: str = option(
+            str,
+            "Server (defaults to this one)",
+            autocomplete=_guild_autocomplete,
+            default=None,
+        ),
     ):
         await ctx.defer(ephemeral=True)
         gid = int(guild_id) if guild_id else ctx.guild.id
@@ -202,15 +203,15 @@ class DevelopmentCog(commands.Cog):
     @discord.slash_command(description="Show the bot's terminal log", guild_ids=DEBUG_GUILD_IDS)
     @discord.default_permissions(administrator=True)
     async def log(
-            self,
-            ctx: ApplicationContext,
-            lines_per_page: int = option(
-                int,
-                "Lines per page",
-                required=False,
-                default=DEFAULT_LINES_PER_PAGE,
-                choices=LINES_PER_PAGE_OPTIONS,
-            ),
+        self,
+        ctx: ApplicationContext,
+        lines_per_page: int = option(
+            int,
+            "Lines per page",
+            required=False,
+            default=DEFAULT_LINES_PER_PAGE,
+            choices=LINES_PER_PAGE_OPTIONS,
+        ),
     ):
         await ctx.defer(ephemeral=True)
         view = LogView(ctx, LOG_PATH, lines_per_page=lines_per_page)

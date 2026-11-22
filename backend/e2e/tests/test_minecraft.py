@@ -51,7 +51,9 @@ async def test_setup_validates_address_and_bot_permissions(e2e):
     assert "must not be empty" in blank.original.content
 
     refused = await e2e.slash(
-        "setting_minecraft_set_channel", channel=e2e.sandbox.voice_no_manage, address="mc.example.test",
+        "setting_minecraft_set_channel",
+        channel=e2e.sandbox.voice_no_manage,
+        address="mc.example.test",
     )
     assert "Manage Channels" in refused.original.content and refused.original.ephemeral
     assert e2e.g.minecraft_channels == {}

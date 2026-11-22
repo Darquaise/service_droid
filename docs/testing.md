@@ -21,14 +21,14 @@ DMs are swallowed for every test (see *Owner DMs*).
   reject them, the interaction does not exist there. What Discord would refuse is refused here too: a first answer
   later than 3 s after the interaction raises `NotFound` (10062 Unknown interaction), and a body over Discord's limits
   (content 2000, 10 embeds / 6000 characters, field/title/footer lengths, 5 action rows of 5 items, labels, custom_ids,
-  25 select options) raises `HTTPException` (50035 Invalid Form Body) — inside the bot, as in production. Every other request goes to real Discord untouched: `channel.send`,
+  25 select options; for components v2 messages: no content/embeds, 40 components, 4000 characters of text) raises `HTTPException` (50035 Invalid Form Body) — inside the bot, as in production. Every other request goes to real Discord untouched: `channel.send`,
   role changes, channel edits, history reads.
 - **Captured responses** are `Response` objects (`e2e/harness/pycord.py`): `.original`, `.followups`, `.text`,
-  and per message `.content`, `.embeds`, `.files` (name + bytes), `.ephemeral`, `.components`, `.edits`, `.deleted`. A
+  and per message `.content`, `.embeds`, `.files` (name + bytes), `.ephemeral`, `.components`, `.is_v2` / `.texts` (components v2 text displays; `.text` includes them), `.edits`, `.deleted`. A
   message edited later (edit_original_response, a select/button callback) is updated in place.
 - **Mirroring**: each captured message is also posted as a real message into the channel the command ran in (into
   the sandbox `log` channel when the bot cannot write there), with a `-# e2e · /command · user` header. This is only
-  for a human looking at the guild after a run; tests assert on the captured data. Mirrors go through a background
+  for a human looking at the guild after a run (a components v2 answer is mirrored as a real v2 message with the same containers and text, minus the buttons); tests assert on the captured data. Mirrors go through a background
   queue (a real `channel.send` with its rate limits must not delay the bot's answer) that is flushed before each test.
 - **Completion**: `slash()`/`click()` return once the command (or the view callback) finished; when it raised, also
   once py-cord's error handler tasks (`on_application_command_error`, `on_view_error`) finished, so their answer is part
@@ -124,6 +124,8 @@ git config core.hooksPath .githooks
 ```
 
 - `.githooks/pre-commit` (seconds) — when the commit touches `backend/` (or the e2e scripts/compose file/hooks):
+  `ruff format` on the staged Python files (re-staged afterwards; it stops if such a file also has unstaged changes,
+  since those would be dragged into the commit; applied migrations in `migrations/versions/` are excluded),
   `ruff check`, the clock rule (no `datetime.now(`/`utcnow(` in `classes/`, `cogs/`, `converters/`, `store/` outside
   `classes/clock.py`) and `pytest e2e -m offline`. It checks the working tree, not what is staged.
 - `.githooks/pre-push` (~4 min) — when the pushed commits touch `backend/` or the e2e files: `scripts/e2e.sh`, the full

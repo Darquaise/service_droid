@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "service_droid — py-cord Discord bot (LFG, Trivia, Galatron)."
 requires-python = ">=3.14"
 dependencies = [
-    "py-cord>=2.8.0",
+    "py-cord>=2.8.1",
     "croniter>=6.2.2",
     "python-dotenv>=1.0",
     "sqlalchemy[asyncio]>=2.0",
@@ -25,7 +25,11 @@ package = false
 
 [tool.ruff]
 target-version = "py314"
-line-length = 100
+line-length = 120
+
+[tool.ruff.format]
+# applied migrations stay exactly as they were deployed
+exclude = ["migrations/versions/*.py"]
 
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["E402"]

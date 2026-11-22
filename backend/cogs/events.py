@@ -47,19 +47,14 @@ class EventsCog(commands.Cog):
         texts = [
             f"A violent shiver runs through local space as **{display_name}** leaves the server. "
             f"The Galatron's tether snaps and the artifact drifts, unclaimed once more.",
-
             f"When **{display_name}** vanishes from the star map, the Galatron's presence folds in on itself. "
             f"Its former bearer is gone; its next host is unwritten.",
-
             f"Reality quietly rewrites itself. **{display_name}** departs, and with them the last stable anchor "
             f"of the Galatron. The artifact now roams the higher dimensions untethered.",
-
             f"The subspace signature of **{display_name}** flickers out. "
             f"In the silence that follows, the Galatron slips its bonds and returns to the void.",
-
             f"With **{display_name}** no longer among this empire's citizens, the Galatron releases its grip. "
             f"No one holds the artifact; the next convergence will decide its fate.",
-
             f"A final echo of **{display_name}** fades from the comm-net. "
             f"The Galatron senses the absence and dissolves its pact, awaiting a new claimant.",
         ]
@@ -74,9 +69,7 @@ class EventsCog(commands.Cog):
             return
 
         embed = discord.Embed(
-            title=self._text_title(),
-            description=self._text_description(member.display_name),
-            color=discord.Color.red()
+            title=self._text_title(), description=self._text_description(member.display_name), color=discord.Color.red()
         )
 
         for channel in guild.galatron_channels:
@@ -84,4 +77,3 @@ class EventsCog(commands.Cog):
                 await channel.send(embed=embed)
             except discord.HTTPException:
                 logger.warning("could not announce Galatron loss in #%s (%s)", channel.name, channel.id)
-

@@ -68,7 +68,7 @@ def check_runner() -> None:
         raise E2EConfigError("live e2e tests run only via scripts/e2e.sh (it holds the run lock)")
     try:
         os.kill(int(pid), 0)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         raise E2EConfigError("the e2e run lock belongs to a process that is gone — use scripts/e2e.sh") from None
 
 
@@ -77,7 +77,7 @@ def token_bot_id(token: str) -> int | None:
     head = token.strip().split(".", 1)[0]
     try:
         return int(base64.urlsafe_b64decode(head + "=" * (-len(head) % 4)))
-    except (binascii.Error, ValueError):
+    except binascii.Error, ValueError:
         return None
 
 

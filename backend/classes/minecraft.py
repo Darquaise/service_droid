@@ -87,8 +87,11 @@ class MinecraftStatusUpdater:
             self.cancel_channel(cid)
 
     def _note_perm_failure(
-            self, channel_id: int, guild: discord.Guild,
-            config: MinecraftStatusConfig, missing: list[str],
+        self,
+        channel_id: int,
+        guild: discord.Guild,
+        config: MinecraftStatusConfig,
+        missing: list[str],
     ) -> None:
         # Detached: dissolving cancels this channel's task, which is the caller.
         if channel_id in self._perm_failures:
@@ -100,8 +103,11 @@ class MinecraftStatusUpdater:
         )
 
     async def _handle_perm_failure(
-            self, channel_id: int, guild: discord.Guild,
-            config: MinecraftStatusConfig, missing: list[str],
+        self,
+        channel_id: int,
+        guild: discord.Guild,
+        config: MinecraftStatusConfig,
+        missing: list[str],
     ) -> None:
         try:
             config.perm_fail_count += 1
@@ -120,10 +126,9 @@ class MinecraftStatusUpdater:
         finally:
             self._perm_failures.discard(channel_id)
 
-    async def _dissolve_channel(
-            self, channel_id: int, guild: discord.Guild, missing: list[str]
-    ) -> None:
+    async def _dissolve_channel(self, channel_id: int, guild: discord.Guild, missing: list[str]) -> None:
         from .guild import Guild
+
         _log(f"channel {channel_id}: missing {missing}, dissolving minecraft mapping")
         # Stop the loop before awaiting, so a later tick can't queue a second dissolve.
         self.cancel_channel(channel_id)
@@ -171,9 +176,7 @@ class MinecraftStatusUpdater:
         except discord.Forbidden:
             # The cached overwrites said we were allowed; re-read them for the real reason.
             missing = missing_channel_perms(channel, "view_channel", "manage_channels")
-            self._note_perm_failure(
-                channel_id, channel.guild, config, missing or ["Manage Channels"]
-            )
+            self._note_perm_failure(channel_id, channel.guild, config, missing or ["Manage Channels"])
         except discord.HTTPException as e:
             _log(f"channel {channel_id}: failed to rename: {e!r}")
         else:

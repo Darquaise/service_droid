@@ -38,4 +38,6 @@ def setup_logging() -> None:
     root.setLevel(level)
     root.handlers[:] = [stream, file]
 
-    logging.getLogger("discord").setLevel(logging.DEBUG if os.environ.get("DISCORD_DEBUG", "").strip().lower() == "true" else logging.INFO)
+    logging.getLogger("discord").setLevel(
+        logging.DEBUG if os.environ.get("DISCORD_DEBUG", "").strip().lower() == "true" else logging.INFO
+    )

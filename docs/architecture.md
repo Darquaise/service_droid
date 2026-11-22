@@ -73,6 +73,14 @@ markup shows as raw text there):
 
 **The exception — raw event listeners.** This gating lives in the two methods above only. It does **not** cover `@commands.Cog.listener()` listeners (e.g. `EventsCog.on_message`, reaction handlers): py-cord dispatches those through the event system independently, so they still fire for DMs where `message.guild is None`. Any such listener must guard `if message.guild is None: return` itself before touching `message.guild` or `Guild.get(...)`.
 
+## Permission checks
+
+All permission handling lives in `classes/permissions.py` (exported via `classes/__init__.py`): `missing_channel_perms`, `format_missing_perms`, `role_assignment_error`, `role_ping_warning`, `notify_owner`. New channel/role features use these helpers — no inline permission logic in cogs. How a missing permission is handled depends on where it shows up (convention set by the user, 2026-07-07):
+
+- **Setup commands** (choosing a channel/role): a missing required permission **blocks** the command (ephemeral rejection), not just a warning. Exception: the LFG role ping (role not mentionable and no `mention_everyone`) is only a **warning** — it is role configuration, not a bot permission.
+- **Automatic loops** (trivia scheduler, Minecraft updater): a permission missing at runtime **dissolves the config** (`remove_trivia_channel` / `remove_minecraft_channel`) + `notify_owner(...)` + `cancel_channel`. Schedule this as a detached task (`bot.loop.create_task(self._dissolve_channel(...))`), because `_dissolve_channel` cancels the running task.
+- **Triggered actions** (Galatron hunt, LFG): report the error to the user in chat/ephemerally **and** `notify_owner`. Galatron checks that the role can be assigned **before** consuming the attempt, so no unassignable win is recorded.
+
 ## Sentinel pattern: `LFGNotAllowed`
 
 `classes/lfg.py:LFGNotAllowed` is a class instantiated as a sentinel return value (`return LFGNotAllowed()`). Checks use `isinstance(x, LFGNotAllowed)`. Don't mix patterns — don't return the class itself or compare with `is`.

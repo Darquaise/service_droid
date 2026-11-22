@@ -1,7 +1,12 @@
 import discord
 
 from classes import (
-    ServiceDroid, ApplicationContext, build_command_listing_embed, option, missing_channel_perms, format_missing_perms,
+    ServiceDroid,
+    ApplicationContext,
+    build_command_listing_embed,
+    option,
+    missing_channel_perms,
+    format_missing_perms,
     role_assignment_error,
 )
 
@@ -17,13 +22,9 @@ def generate_settings_embed(ctx: ApplicationContext) -> discord.Embed:
     text += "**Cooldown:** resets daily at 00:00 UTC\n"
     text += f"**Chance:** {ctx.g.galatron_chance * 100}%\n"
 
-    embed = discord.Embed(
-        title="Galatron Settings",
-        description=text,
-        color=0xffd700
-    )
+    embed = discord.Embed(title="Galatron Settings", description=text, color=0xFFD700)
 
-    embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
+    embed.set_author(name=f"{ctx.guild.name} - ID: {ctx.guild.id}")
     icon = ctx.guild.icon
     if icon:
         embed.set_thumbnail(url=icon.url)
@@ -37,14 +38,12 @@ class GalatronSettingsCog(discord.Cog):
     @discord.slash_command(description="Allow members to hunt the Galatron in this channel.")
     @discord.default_permissions(administrator=True)
     async def setting_add_galatron_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Channel to enable the Galatron hunt in"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Channel to enable the Galatron hunt in"),
     ):
         if channel in ctx.g.galatron_channels:
-            return await ctx.respond(
-                f"{channel.mention} is already being used for the Galatron hunt!",
-                ephemeral=True
-            )
+            return await ctx.respond(f"{channel.mention} is already being used for the Galatron hunt!", ephemeral=True)
 
         missing = missing_channel_perms(channel, "view_channel", "send_messages", "embed_links", "attach_files")
         if missing:
@@ -52,30 +51,26 @@ class GalatronSettingsCog(discord.Cog):
 
         await ctx.g.add_galatron_channel(channel)
 
-        return await ctx.respond(
-            f"{channel.mention} is now viable for the Galatron hunt!.",
-            ephemeral=True
-        )
+        return await ctx.respond(f"{channel.mention} is now viable for the Galatron hunt!.", ephemeral=True)
 
     @discord.slash_command(description="Stop allowing the Galatron hunt in this channel.")
     @discord.default_permissions(administrator=True)
     async def setting_remove_galatron_channel(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Channel to disable the Galatron hunt in"),
     ):
         if channel in ctx.g.galatron_channels:
             await ctx.g.remove_galatron_channel(channel)
 
-        return await ctx.respond(
-            f"{channel.mention} is not being used for the Galatron hunt!",
-            ephemeral=True
-        )
+        return await ctx.respond(f"{channel.mention} is not being used for the Galatron hunt!", ephemeral=True)
 
     @discord.slash_command(description="Set the role granted to the current bearer of the Galatron.")
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_role(
-            self, ctx: ApplicationContext,
-            role: discord.Role = option(discord.Role, "Role assigned to whoever currently holds the Galatron"),
+        self,
+        ctx: ApplicationContext,
+        role: discord.Role = option(discord.Role, "Role assigned to whoever currently holds the Galatron"),
     ):
         if ctx.g.galatron_role and role.id == ctx.g.galatron_role.id:
             return await ctx.respond(f"{role.mention} is already being used for the Galatron hunt!")
@@ -88,8 +83,9 @@ class GalatronSettingsCog(discord.Cog):
     @discord.slash_command(description="Set the success chance per Galatron attempt.")
     @discord.default_permissions(administrator=True)
     async def setting_set_galatron_chance(
-            self, ctx: ApplicationContext,
-            chance: float = option(float, "Success chance in percent (0-100)"),
+        self,
+        ctx: ApplicationContext,
+        chance: float = option(float, "Success chance in percent (0-100)"),
     ):
         if not 0 <= chance <= 100:
             return await ctx.respond(
@@ -122,6 +118,9 @@ class GalatronSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def commands_galatron(self, ctx: ApplicationContext):
         embed = await build_command_listing_embed(
-            self.bot, ctx.guild, "Galatron commands", (GalatronSettingsCog,),
+            self.bot,
+            ctx.guild,
+            "Galatron commands",
+            (GalatronSettingsCog,),
         )
         await ctx.respond(embed=embed, ephemeral=True)

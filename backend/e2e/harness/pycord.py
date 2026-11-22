@@ -27,7 +27,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Iterable
+from typing import Any, Awaitable, Callable, Iterable, Iterator
 
 import discord
 from discord.ui.view import BaseView, ViewStore
@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 TOKEN_PREFIX = "e2e."
 DISCORD_EPOCH = 1420070400000
 EPHEMERAL = 1 << 6
+IS_COMPONENTS_V2 = 1 << 15
 
 # InteractionResponseType
 RESP_CHANNEL_MESSAGE = 4
@@ -62,6 +63,11 @@ MAX_ROW_ITEMS = 5
 MAX_LABEL = 80
 MAX_CUSTOM_ID = 100
 MAX_SELECT_OPTIONS = 25
+MAX_V2_COMPONENTS = 40
+MAX_V2_TEXT = 4000
+COMPONENT_ACTION_ROW = 1
+COMPONENT_TEXT_DISPLAY = 10
+COMPONENT_CONTAINER = 17
 
 # SlashCommandOptionType
 OPT_SUB_COMMAND = 1
@@ -116,6 +122,7 @@ def _iso(dt: datetime | None = None) -> str:
 # captured responses
 # ---------------------------------------------------------------------------------------------
 
+
 @dataclass(slots=True)
 class CapturedFile:
     filename: str
@@ -133,21 +140,47 @@ class CapturedComponent:
     options: list[str] = field(default_factory=list)
 
 
+def walk_components(nodes: Iterable[dict]) -> Iterator[dict]:
+    """Every component of a message, nested ones included (containers, action rows, section accessories)."""
+    for node in nodes:
+        yield node
+        if node.get("accessory"):
+            yield from walk_components([node["accessory"]])
+        yield from walk_components(node.get("components") or [])
+
+
+def component_texts(nodes: Iterable[dict]) -> list[str]:
+    return [n.get("content") or "" for n in walk_components(nodes) if n.get("type") == COMPONENT_TEXT_DISPLAY]
+
+
 def _flatten_components(rows: Iterable[dict]) -> list[CapturedComponent]:
     found: list[CapturedComponent] = []
 
     def walk(node: dict) -> None:
         kind = node.get("type")
         if kind == 2:
-            found.append(CapturedComponent(
-                "button", node.get("custom_id"), node.get("label"), bool(node.get("disabled")),
-                node.get("style"), node.get("url"),
-            ))
+            found.append(
+                CapturedComponent(
+                    "button",
+                    node.get("custom_id"),
+                    node.get("label"),
+                    bool(node.get("disabled")),
+                    node.get("style"),
+                    node.get("url"),
+                )
+            )
         elif kind == 3:
-            found.append(CapturedComponent(
-                "select", node.get("custom_id"), node.get("placeholder"), bool(node.get("disabled")),
-                options=[o["value"] for o in node.get("options", [])],
-            ))
+            found.append(
+                CapturedComponent(
+                    "select",
+                    node.get("custom_id"),
+                    node.get("placeholder"),
+                    bool(node.get("disabled")),
+                    options=[o["value"] for o in node.get("options", [])],
+                )
+            )
+        if node.get("accessory"):
+            walk(node["accessory"])
         for child in node.get("components", []):
             walk(child)
 
@@ -184,9 +217,18 @@ class CapturedMessage:
         return bool(self.flags & EPHEMERAL)
 
     @property
+    def is_v2(self) -> bool:
+        return bool(self.flags & IS_COMPONENTS_V2)
+
+    @property
+    def texts(self) -> list[str]:
+        """The text displays of a components v2 message, in order."""
+        return component_texts(self._raw_components)
+
+    @property
     def text(self) -> str:
-        """Content plus everything readable in the embeds, for substring assertions."""
-        parts = [self.content]
+        """Content plus everything readable in the embeds and text displays, for substring assertions."""
+        parts = [self.content, *self.texts]
         for embed in self.embeds:
             parts += [embed.title or "", embed.description or ""]
             parts += [f"{f.name}\n{f.value}" for f in embed.fields]
@@ -246,7 +288,9 @@ class CapturedMessage:
             "mention_roles": [],
             "attachments": [
                 {
-                    "id": a["id"], "filename": a["filename"], "size": len(f.data),
+                    "id": a["id"],
+                    "filename": a["filename"],
+                    "size": len(f.data),
                     "url": f"https://e2e.invalid/{a['id']}/{a['filename']}",
                     "proxy_url": f"https://e2e.invalid/{a['id']}/{a['filename']}",
                 }
@@ -272,8 +316,13 @@ class Response:
     """Everything the bot answered to one synthetic interaction."""
 
     def __init__(
-            self, interaction_id: int, token: str, command: str, user: discord.Member,
-            channel: discord.abc.GuildChannel, kind: str,
+        self,
+        interaction_id: int,
+        token: str,
+        command: str,
+        user: discord.Member,
+        channel: discord.abc.GuildChannel,
+        kind: str,
     ):
         self.interaction_id = interaction_id
         self.token = token
@@ -339,6 +388,7 @@ class Response:
 # payload builders
 # ---------------------------------------------------------------------------------------------
 
+
 def user_payload(user: discord.abc.User) -> dict:
     return {
         "id": str(user.id),
@@ -400,7 +450,8 @@ def channel_payload(channel: discord.abc.GuildChannel, member: discord.Member | 
 def _resolve_command(bot: discord.Bot, guild: discord.Guild, path: tuple[str, ...]):
     """Find the (sub)command for ``path``; returns ``(leaf, [top, *chain])``."""
     candidates = [
-        c for c in bot.application_commands
+        c
+        for c in bot.application_commands
         if c.name == path[0] and isinstance(c, (discord.SlashCommand, discord.SlashCommandGroup))
     ]
     scoped = [c for c in candidates if not c.guild_ids or guild.id in c.guild_ids]
@@ -473,8 +524,12 @@ def build_options(command: discord.SlashCommand, given: dict[str, Any], resolved
 
 
 def _base_interaction(
-        bot: discord.Client, token: str, kind: int, guild: discord.Guild,
-        channel: discord.abc.GuildChannel, member: discord.Member,
+    bot: discord.Client,
+    token: str,
+    kind: int,
+    guild: discord.Guild,
+    channel: discord.abc.GuildChannel,
+    member: discord.Member,
 ) -> dict:
     return {
         "id": str(new_snowflake()),
@@ -497,8 +552,13 @@ def _base_interaction(
 
 
 def build_command_payload(
-        bot: discord.Client, token: str, guild: discord.Guild, channel: discord.abc.GuildChannel,
-        member: discord.Member, path: tuple[str, ...], options: dict[str, Any],
+    bot: discord.Client,
+    token: str,
+    guild: discord.Guild,
+    channel: discord.abc.GuildChannel,
+    member: discord.Member,
+    path: tuple[str, ...],
+    options: dict[str, Any],
 ) -> tuple[dict, discord.SlashCommand, list]:
     leaf, chain = _resolve_command(bot, guild, path)
     resolved: dict = {}
@@ -521,9 +581,14 @@ def build_command_payload(
 
 
 def build_component_payload(
-        bot: discord.Client, token: str, guild: discord.Guild, channel: discord.abc.GuildChannel,
-        member: discord.Member, message: CapturedMessage, component: CapturedComponent,
-        values: list[str] | None,
+    bot: discord.Client,
+    token: str,
+    guild: discord.Guild,
+    channel: discord.abc.GuildChannel,
+    member: discord.Member,
+    message: CapturedMessage,
+    component: CapturedComponent,
+    values: list[str] | None,
 ) -> dict:
     payload = _base_interaction(bot, token, 3, guild, channel, member)
     data: dict[str, Any] = {
@@ -573,21 +638,31 @@ def validate_message(data: dict) -> list[str]:
     if total > MAX_EMBED_TOTAL:
         problems.append(f"embeds have {total} characters in total (max {MAX_EMBED_TOTAL})")
     rows = data.get("components") or []
-    if len(rows) > MAX_ACTION_ROWS:
+    nodes = list(walk_components(rows))
+    v2 = bool((data.get("flags") or 0) & IS_COMPONENTS_V2) or any(r.get("type") != COMPONENT_ACTION_ROW for r in rows)
+    if v2:
+        if content:
+            problems.append("content is not allowed on a components v2 message")
+        if embeds:
+            problems.append("embeds are not allowed on a components v2 message")
+        if len(nodes) > MAX_V2_COMPONENTS:
+            problems.append(f"{len(nodes)} components (max {MAX_V2_COMPONENTS})")
+        text_total = sum(len(t) for t in component_texts(rows))
+        if text_total > MAX_V2_TEXT:
+            problems.append(f"text displays have {text_total} characters in total (max {MAX_V2_TEXT})")
+    elif len(rows) > MAX_ACTION_ROWS:
         problems.append(f"{len(rows)} action rows (max {MAX_ACTION_ROWS})")
-    for row in rows:
-        items = row.get("components") or []
-        if row.get("type") == 1 and len(items) > MAX_ROW_ITEMS:
-            problems.append(f"an action row has {len(items)} items (max {MAX_ROW_ITEMS})")
-        for item in items:
-            label = item.get("label") or ""
-            custom_id = item.get("custom_id") or ""
-            if len(label) > MAX_LABEL:
-                problems.append(f"component label {label[:20]!r}… has {len(label)} characters (max {MAX_LABEL})")
-            if len(custom_id) > MAX_CUSTOM_ID:
-                problems.append(f"custom_id has {len(custom_id)} characters (max {MAX_CUSTOM_ID})")
-            if len(item.get("options") or []) > MAX_SELECT_OPTIONS:
-                problems.append(f"select has {len(item['options'])} options (max {MAX_SELECT_OPTIONS})")
+    for node in nodes:
+        if node.get("type") == COMPONENT_ACTION_ROW and len(node.get("components") or []) > MAX_ROW_ITEMS:
+            problems.append(f"an action row has {len(node['components'])} items (max {MAX_ROW_ITEMS})")
+        label = node.get("label") or ""
+        custom_id = node.get("custom_id") or ""
+        if len(label) > MAX_LABEL:
+            problems.append(f"component label {label[:20]!r}… has {len(label)} characters (max {MAX_LABEL})")
+        if len(custom_id) > MAX_CUSTOM_ID:
+            problems.append(f"custom_id has {len(custom_id)} characters (max {MAX_CUSTOM_ID})")
+        if len(node.get("options") or []) > MAX_SELECT_OPTIONS:
+            problems.append(f"select has {len(node['options'])} options (max {MAX_SELECT_OPTIONS})")
     return problems
 
 
@@ -605,6 +680,7 @@ def required_permissions(chain: list) -> discord.Permissions | None:
 # ---------------------------------------------------------------------------------------------
 # the gateway: interception + dispatch
 # ---------------------------------------------------------------------------------------------
+
 
 class _FakeResponse:
     def __init__(self, status: int, reason: str):
@@ -685,7 +761,11 @@ class InteractionGateway:
             try:
                 return await original_process(interaction, *args, **kwargs)
             finally:
-                if rec is not None and rec.kind == "command" and interaction.type is discord.InteractionType.application_command:
+                if (
+                    rec is not None
+                    and rec.kind == "command"
+                    and interaction.type is discord.InteractionType.application_command
+                ):
                     rec._pending -= 1
 
         self.bot.process_application_commands = process
@@ -727,9 +807,16 @@ class InteractionGateway:
         rec.interaction_id = int(payload["id"])
 
     async def run_command(
-            self, *, guild: discord.Guild, channel: discord.abc.GuildChannel, member: discord.Member,
-            path: tuple[str, ...], options: dict[str, Any], enforce_permissions: bool = True,
-            expect_error: bool = False, timeout: float = 30.0,
+        self,
+        *,
+        guild: discord.Guild,
+        channel: discord.abc.GuildChannel,
+        member: discord.Member,
+        path: tuple[str, ...],
+        options: dict[str, Any],
+        enforce_permissions: bool = True,
+        expect_error: bool = False,
+        timeout: float = 30.0,
     ) -> Response:
         token = f"{TOKEN_PREFIX}{next(_counter)}.{new_snowflake()}"
         payload, leaf, chain = build_command_payload(self.bot, token, guild, channel, member, path, options)
@@ -750,9 +837,16 @@ class InteractionGateway:
         return await self._settle(rec, timeout, expect_error)
 
     async def run_component(
-            self, *, guild: discord.Guild, channel: discord.abc.GuildChannel, member: discord.Member,
-            message: CapturedMessage, component: CapturedComponent, values: list[str] | None = None,
-            expect_error: bool = False, timeout: float = 30.0,
+        self,
+        *,
+        guild: discord.Guild,
+        channel: discord.abc.GuildChannel,
+        member: discord.Member,
+        message: CapturedMessage,
+        component: CapturedComponent,
+        values: list[str] | None = None,
+        expect_error: bool = False,
+        timeout: float = 30.0,
     ) -> Response:
         if component.disabled:
             raise HarnessError(f"component {component.custom_id!r} is disabled; Discord would not send a click")
@@ -787,10 +881,7 @@ class InteractionGateway:
         names = {"pycord: on_application_command_error", "pycord: on_view_error"}
         current = asyncio.current_task()
         while True:
-            pending = [
-                t for t in asyncio.all_tasks()
-                if t is not current and not t.done() and t.get_name() in names
-            ]
+            pending = [t for t in asyncio.all_tasks() if t is not current and not t.done() and t.get_name() in names]
             if not pending or time.monotonic() > deadline:
                 return
             await asyncio.wait(pending, timeout=max(0.0, deadline - time.monotonic()))
@@ -962,6 +1053,7 @@ _MISSING = object()
 # ---------------------------------------------------------------------------------------------
 # permissions
 # ---------------------------------------------------------------------------------------------
+
 
 def demote_bot_admin(guild: discord.Guild) -> None:
     """Make the bot's cached roles carry every permission except Administrator.

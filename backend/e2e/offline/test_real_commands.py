@@ -39,7 +39,10 @@ def sample(option: discord.Option, guild: discord.Guild):
     if option.choices:
         return option.choices[0].value
     return {
-        T.string: "x", T.integer: 1, T.number: 1.5, T.boolean: True,
+        T.string: "x",
+        T.integer: 1,
+        T.number: 1.5,
+        T.boolean: True,
         T.channel: guild.get_channel(fakeguild.GENERAL_ID),
         T.role: guild.get_role(fakeguild.ADMIN_ROLE_ID),
         T.user: guild.get_member(fakeguild.PLAYER_ID),
@@ -56,7 +59,13 @@ async def test_every_command_builds_a_payload_py_cord_accepts(real):
     for command in commands:
         options = {o.name: sample(o, guild) for o in command.options}
         payload, leaf, _ = pycord.build_command_payload(
-            bot, f"{pycord.TOKEN_PREFIX}probe", guild, channel, member, (command.name,), options,
+            bot,
+            f"{pycord.TOKEN_PREFIX}probe",
+            guild,
+            channel,
+            member,
+            (command.name,),
+            options,
         )
         interaction = discord.Interaction(data=payload, state=bot._connection)
         assert interaction.command is None and interaction.data["name"] == command.name

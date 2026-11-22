@@ -25,6 +25,7 @@ class Base(DeclarativeBase):
 
 class GuildRow(Base):
     """discord guilds with their base settings"""
+
     __tablename__ = "guild"
 
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
@@ -32,7 +33,8 @@ class GuildRow(Base):
     galatron_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # Rolled per row by the database, so every guild starts in a random voice.
     galatron_register: Mapped[str] = mapped_column(
-        Text, nullable=False,
+        Text,
+        nullable=False,
         server_default=text("((ARRAY['survey', 'shroud', 'court'])[floor(random() * 3)::int + 1])"),
     )
 
@@ -42,12 +44,10 @@ class LfgHostRoleRow(Base):
 
     __tablename__ = "lfg_host_role"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     role_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    cooldown: Mapped[int] = mapped_column(Integer, nullable=False)          # amount
-    cooldown_unit: Mapped[str] = mapped_column(Text, nullable=False)        # cooldown_type
+    cooldown: Mapped[int] = mapped_column(Integer, nullable=False)  # amount
+    cooldown_unit: Mapped[str] = mapped_column(Text, nullable=False)  # cooldown_type
 
     __table_args__ = (PrimaryKeyConstraint("guild_id", "role_id"),)
 
@@ -57,9 +57,7 @@ class LfgChannelRow(Base):
 
     __tablename__ = "lfg_channel"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     __table_args__ = (PrimaryKeyConstraint("guild_id", "channel_id"),)
@@ -89,9 +87,7 @@ class GalatronChannelRow(Base):
 
     __tablename__ = "galatron_channel"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     __table_args__ = (PrimaryKeyConstraint("guild_id", "channel_id"),)
@@ -103,9 +99,7 @@ class GalatronAttemptRow(Base):
     __tablename__ = "galatron_attempt"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     member_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     won: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
@@ -121,9 +115,7 @@ class GalatronChanceRow(Base):
 
     __tablename__ = "galatron_chance"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     chance: Mapped[float] = mapped_column(Double, nullable=False)
 
@@ -135,9 +127,7 @@ class MinecraftStatusChannelRow(Base):
 
     __tablename__ = "minecraft_status_channel"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     address: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -149,9 +139,7 @@ class TriviaListRow(Base):
 
     __tablename__ = "trivia_list"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
 
     __table_args__ = (PrimaryKeyConstraint("guild_id", "name"),)
@@ -165,7 +153,7 @@ class TriviaQuestionRow(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     list_name: Mapped[str] = mapped_column(Text, nullable=False)
-    local_id: Mapped[int] = mapped_column(Integer, nullable=False)          # the list-local 'id'
+    local_id: Mapped[int] = mapped_column(Integer, nullable=False)  # the list-local 'id'
     title: Mapped[str] = mapped_column(Text, nullable=False)
     question: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
@@ -186,15 +174,15 @@ class TriviaChannelRow(Base):
 
     __tablename__ = "trivia_channel"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild.guild_id", ondelete="CASCADE"), nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     list_name: Mapped[str] = mapped_column(Text, nullable=False)
     schedule: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[int] = mapped_column(Integer, nullable=False)
     mode: Mapped[str] = mapped_column(Text, nullable=False)
-    question_order: Mapped[str] = mapped_column(Text, nullable=False)  # how the next question is picked (random/sequential); 'order' is reserved in SQL
+    question_order: Mapped[str] = mapped_column(
+        Text, nullable=False
+    )  # how the next question is picked (random/sequential); 'order' is reserved in SQL
     next_index: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
 
     __table_args__ = (

@@ -14,7 +14,14 @@ import discord
 
 from .env import E2EConfig
 from .pycord import (
-    CapturedMessage, HarnessError, InteractionGateway, Response, _resolve_command, required_permissions,
+    COMPONENT_CONTAINER,
+    CapturedMessage,
+    HarnessError,
+    InteractionGateway,
+    Response,
+    _resolve_command,
+    component_texts,
+    required_permissions,
 )
 from .sandbox import Sandbox
 
@@ -26,7 +33,11 @@ MIRROR_HEADER = "-# e2e"
 
 class E2E:
     def __init__(
-            self, bot: discord.Bot, config: E2EConfig, sandbox: Sandbox, gateway: InteractionGateway,
+        self,
+        bot: discord.Bot,
+        config: E2EConfig,
+        sandbox: Sandbox,
+        gateway: InteractionGateway,
     ):
         self.bot = bot
         self.config = config
@@ -49,9 +60,14 @@ class E2E:
     # -- invoking ---------------------------------------------------------------------------
 
     async def slash(
-            self, *path: str, user: discord.Member | None = None, in_channel: discord.abc.GuildChannel | None = None,
-            enforce_permissions: bool = True, expect_error: bool = False, timeout: float = 30.0,
-            **options: Any,
+        self,
+        *path: str,
+        user: discord.Member | None = None,
+        in_channel: discord.abc.GuildChannel | None = None,
+        enforce_permissions: bool = True,
+        expect_error: bool = False,
+        timeout: float = 30.0,
+        **options: Any,
     ) -> Response:
         """Run ``/path...`` as ``user`` in ``in_channel`` with ``options`` and return what the bot answered.
 
@@ -67,13 +83,24 @@ class E2E:
             _, chain = _resolve_command(self.bot, self.guild, path)
             user = self.admin if required_permissions(chain) is not None else self.member
         return await self.gateway.run_command(
-            guild=self.guild, channel=in_channel or self.sandbox.general, member=user, path=path,
-            options=options, enforce_permissions=enforce_permissions, expect_error=expect_error, timeout=timeout,
+            guild=self.guild,
+            channel=in_channel or self.sandbox.general,
+            member=user,
+            path=path,
+            options=options,
+            enforce_permissions=enforce_permissions,
+            expect_error=expect_error,
+            timeout=timeout,
         )
 
     async def click(
-            self, target: Response | CapturedMessage, ident: str, *, user: discord.Member | None = None,
-            expect_error: bool = False, timeout: float = 30.0,
+        self,
+        target: Response | CapturedMessage,
+        ident: str,
+        *,
+        user: discord.Member | None = None,
+        expect_error: bool = False,
+        timeout: float = 30.0,
     ) -> Response:
         """Press the button ``ident`` (custom_id, else label) on a response/message.
 
@@ -81,13 +108,23 @@ class E2E:
         """
         message, member = self._component_target(target, user)
         return await self.gateway.run_component(
-            guild=self.guild, channel=self._channel_of(message), member=member, message=message,
-            component=message.component(ident), expect_error=expect_error, timeout=timeout,
+            guild=self.guild,
+            channel=self._channel_of(message),
+            member=member,
+            message=message,
+            component=message.component(ident),
+            expect_error=expect_error,
+            timeout=timeout,
         )
 
     async def select(
-            self, target: Response | CapturedMessage, ident: str, *values: str,
-            user: discord.Member | None = None, expect_error: bool = False, timeout: float = 30.0,
+        self,
+        target: Response | CapturedMessage,
+        ident: str,
+        *values: str,
+        user: discord.Member | None = None,
+        expect_error: bool = False,
+        timeout: float = 30.0,
     ) -> Response:
         """Choose ``values`` in the select menu ``ident`` (custom_id, else placeholder)."""
         message, member = self._component_target(target, user)
@@ -98,12 +135,20 @@ class E2E:
         if bad:
             raise HarnessError(f"{bad} are not options of {ident!r}; has {component.options}")
         return await self.gateway.run_component(
-            guild=self.guild, channel=self._channel_of(message), member=member, message=message,
-            component=component, values=list(values), expect_error=expect_error, timeout=timeout,
+            guild=self.guild,
+            channel=self._channel_of(message),
+            member=member,
+            message=message,
+            component=component,
+            values=list(values),
+            expect_error=expect_error,
+            timeout=timeout,
         )
 
     def _component_target(
-            self, target: Response | CapturedMessage, user: discord.Member | None,
+        self,
+        target: Response | CapturedMessage,
+        user: discord.Member | None,
     ) -> tuple[CapturedMessage, discord.Member]:
         if isinstance(target, Response):
             message = target.view_message
@@ -122,12 +167,14 @@ class E2E:
     def advance_time(self, delta: timedelta) -> None:
         """Move the bot's clock (classes/clock.py) forward. Real sleeps and gateway timing are unaffected."""
         from classes import clock
+
         clock.advance(delta)
 
     def advance_to_daily_reset(self) -> None:
         """Move the clock one second past the next 00:00 UTC, when the Galatron cooldown lifts for everyone."""
         from classes import clock
         from classes.galatron import next_reset
+
         clock.advance(next_reset(clock.now_utc()) - clock.now_utc() + timedelta(seconds=1))
 
     def keep_clear_of_daily_reset(self, margin: timedelta = timedelta(minutes=30)) -> None:
@@ -135,6 +182,7 @@ class E2E:
         closer than ``margin``, jump past it first."""
         from classes import clock
         from classes.galatron import next_reset
+
         if next_reset(clock.now_utc()) - clock.now_utc() < margin:
             self.advance_to_daily_reset()
 
@@ -142,6 +190,7 @@ class E2E:
         """Make ``random.random()`` in cogs/galatron_commands return ``values`` in turn (the last one
         repeats). The win roll is ``random.random() < chance``, so ``0.0`` wins and ``0.999`` loses."""
         from cogs import galatron_commands
+
         if not values:
             raise HarnessError("force_random needs at least one value")
         queue = list(values)
@@ -160,6 +209,7 @@ class E2E:
     def force_all_contexts(self) -> None:
         """Make every Galatron context line whose condition holds actually appear (their own chance rolls pass)."""
         from classes import galatron_text
+
         self._set(galatron_text.rng, "random", lambda: 0.0)
 
     def patch(self, owner: Any, name: str, value: Any) -> None:
@@ -200,6 +250,7 @@ class E2E:
     def g(self):
         """The live in-memory ``Guild`` of the test guild."""
         from classes import Guild
+
         g = Guild.get(self.guild.id)
         assert g is not None
         return g
@@ -210,7 +261,11 @@ class E2E:
         return cog
 
     async def eventually(
-            self, predicate: Callable[[], Any], what: str = "condition", timeout: float = 10.0, interval: float = 0.05,
+        self,
+        predicate: Callable[[], Any],
+        what: str = "condition",
+        timeout: float = 10.0,
+        interval: float = 0.05,
     ) -> None:
         """Poll until the gateway cache reflects a REST change (role added, ...). ``predicate`` may be async."""
         await Sandbox.eventually(predicate, what, timeout, interval)
@@ -220,12 +275,15 @@ class E2E:
         return (await self.guild.fetch_channel(channel.id)).name
 
     async def wait_for_role(self, member: discord.Member, role: discord.Role, present: bool = True) -> None:
-        await self.eventually(lambda: (role in member.roles) == present, f"{role.name} {'on' if present else 'off'} {member}")
+        await self.eventually(
+            lambda: (role in member.roles) == present, f"{role.name} {'on' if present else 'off'} {member}"
+        )
 
     async def history(self, channel: discord.abc.Messageable, limit: int = 10) -> list[discord.Message]:
         """What the bot really posted in a channel during the current test, newest first (mirrors excluded)."""
         messages = [
-            m async for m in channel.history(limit=100, after=discord.Object(self._test_started), oldest_first=False)
+            m
+            async for m in channel.history(limit=100, after=discord.Object(self._test_started), oldest_first=False)
             if not m.content.startswith(MIRROR_HEADER)
         ]
         return messages[:limit]
@@ -260,7 +318,9 @@ class E2E:
         result = predicate(rebuilt)
         if asyncio.iscoroutine(result):
             result = await result
-        assert result, message or f"not persisted: {getattr(predicate, '__name__', predicate)} is false on the rebuilt guild"
+        assert result, (
+            message or f"not persisted: {getattr(predicate, '__name__', predicate)} is false on the rebuilt guild"
+        )
         return rebuilt
 
     async def assert_write_through(self) -> None:
@@ -272,6 +332,7 @@ class E2E:
 
         from classes import TriviaHandler
         from store import load_state
+
         handler = TriviaHandler.get(self.guild.id)
         live_lists = trivia_snapshot(handler.lists) if handler else {}
         stored_lists = {
@@ -338,7 +399,8 @@ class E2E:
             # everything else hangs off guild with ON DELETE CASCADE
             await session.execute(text("DELETE FROM guild WHERE guild_id = :g"), {"g": self.guild.id})
             await session.execute(
-                text("DELETE FROM trivia_pending WHERE channel_id = ANY(:ids)"), {"ids": channel_ids},
+                text("DELETE FROM trivia_pending WHERE channel_id = ANY(:ids)"),
+                {"ids": channel_ids},
             )
 
     # -- owner notices ----------------------------------------------------------------------
@@ -352,7 +414,7 @@ class E2E:
             text = str(content or "")
             prefix = f"**{harness.guild.name}**\n"
             if text.startswith(prefix):
-                harness.notices.append((harness.guild.id, text[len(prefix):]))
+                harness.notices.append((harness.guild.id, text[len(prefix) :]))
             else:
                 logger.warning("e2e: swallowed a DM to %s: %r", target, text[:200])
 
@@ -413,27 +475,58 @@ class E2E:
             tags.append("deleted")
         header += " · " + " · ".join(tags)
 
+        perms = channel.permissions_for(me)
+
+        if record.is_v2:
+            view = _mirror_view(header, record)
+            if record.mirror is None:
+                record.mirror = await channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
+            else:
+                await record.mirror.edit(view=view, allowed_mentions=discord.AllowedMentions.none())
+            return
+
         body = record.content[: MIRROR_LIMIT - len(header) - 2]
         content = f"{header}\n{body}" if body else header
-        perms = channel.permissions_for(me)
         embeds = record.embeds if perms.embed_links else []
 
         if record.mirror is None:
             files = (
                 [discord.File(io.BytesIO(f.data), filename=f.filename) for f in record.files]
-                if perms.attach_files else []
+                if perms.attach_files
+                else []
             )
             record.mirror = await channel.send(
-                content=content, embeds=embeds, files=files, allowed_mentions=discord.AllowedMentions.none(),
+                content=content,
+                embeds=embeds,
+                files=files,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
         else:
             await record.mirror.edit(content=content, embeds=embeds, allowed_mentions=discord.AllowedMentions.none())
+
+
+def _mirror_view(header: str, record: CapturedMessage) -> discord.ui.DesignerView:
+    """A components v2 answer as a real, non-interactive message: containers keep their colour and text."""
+    view = discord.ui.DesignerView(timeout=None, store=False)
+    view.add_item(discord.ui.TextDisplay(header[:MIRROR_LIMIT]))
+    for node in record._raw_components:
+        texts = component_texts([node])
+        if not texts:
+            continue
+        displays = [discord.ui.TextDisplay(t) for t in texts]
+        if node.get("type") == COMPONENT_CONTAINER:
+            view.add_item(discord.ui.Container(*displays, colour=node.get("accent_color")))
+        else:
+            for display in displays:
+                view.add_item(display)
+    return view
 
 
 _MISSING = object()
 
 
 # -- snapshots ------------------------------------------------------------------------------
+
 
 def _ts(dt) -> float:
     return round(dt.timestamp(), 3)
@@ -448,9 +541,7 @@ def guild_snapshot(g) -> dict:
         "galatron_chances": [(_ts(t), v) for t, v in g.galatron_chances.periods],
         "galatron_attempts": [(a.member_id, _ts(a.occurred_at), a.won) for a in g.galatron_log.attempts],
         "host_roles": {rid: h.get_cooldown_text() for rid, h in sorted(g.host_roles.items())},
-        "lfg_channels": {
-            cid: sorted(r.id for r in ch.roles) for cid, ch in sorted(g.lfg_channels.items())
-        },
+        "lfg_channels": {cid: sorted(r.id for r in ch.roles) for cid, ch in sorted(g.lfg_channels.items())},
         "trivia_channels": {
             cid: (c.list_name, c.schedule, c.response, c.mode, c.order, c.next_index_value)
             for cid, c in sorted(g.trivia_channels.items())

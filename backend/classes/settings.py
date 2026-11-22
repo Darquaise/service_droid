@@ -11,7 +11,11 @@ def env_int_list(name: str) -> list[int]:
 
 class Settings:
     __slots__ = (
-        "debug", "database_url", "command_prefix", "owner_ids", "debug_guild_ids",
+        "debug",
+        "database_url",
+        "command_prefix",
+        "owner_ids",
+        "debug_guild_ids",
     )
 
     def __init__(self):

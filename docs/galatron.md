@@ -72,10 +72,12 @@ speak. `cogs/galatron_commands.py:TextGenerator` is gone.
   `chance` is how often a case is mentioned *when it applies*, so frequent situations (you held it
   before, N attempts against the current bearer) stay quiet most of the time. At most one context line
   is appended per message.
-- **No embeds on anything carrying a mention** — a mention inside an embed stays unresolved for viewers
+- **No embeds on anything carrying a user mention** — a mention inside an embed stays unresolved for viewers
   who don't have that member cached. `/locate_galatron` and the attempt replies are plain text for that
-  reason; `galatron_leaderboard` works around it differently (`PRIME_DELAY`: post the mentions as
-  content first, then edit to embeds).
+  reason. `galatron_leaderboard` is a **components v2** message (`DesignerView`: one gold `Container` with
+  the podium as large lines and the rest as a dense list, 15 entries per page, nav buttons in an `ActionRow` inside the card, shared base `classes/paged_card_view.py:PagedCardView`); `galatron_stats` uses the same card with one line per member (mention, tries, wins, duration); a text display resolves mentions
+  like message content, so no priming is needed. A v2 message can't carry `content` or `embeds`, and its
+  flag can't be removed again.
 - **Artwork.** `cogs/galatron_commands.py:GALATRON_IMAGE` points at `backend/assets/galatron.png`
   (commissioned, human-made — do not replace it with a generated image), attached via `discord.File` on
   a win. `COPY backend/ ./` in the Dockerfile ships it. It is attached, not embedded, so it renders

@@ -7,7 +7,14 @@ from classes.galatron import next_reset
 from store.models import GalatronAttemptRow
 
 from e2e.tests.helpers import (
-    GALATRON_IMAGE, attempt, fail, galatron_text, pool_matches, register, setup_galatron, win,
+    GALATRON_IMAGE,
+    attempt,
+    fail,
+    galatron_text,
+    pool_matches,
+    register,
+    setup_galatron,
+    win,
 )
 
 

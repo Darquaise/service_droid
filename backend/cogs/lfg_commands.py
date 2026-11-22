@@ -5,7 +5,15 @@ from discord.ext import commands
 from datetime import datetime
 
 from classes import (
-    clock, ServiceDroid, Context, ApplicationContext, Guild, LFGNotAllowed, option, missing_channel_perms, notify_owner
+    clock,
+    ServiceDroid,
+    Context,
+    ApplicationContext,
+    Guild,
+    LFGNotAllowed,
+    option,
+    missing_channel_perms,
+    notify_owner,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +79,7 @@ class LFGCog(discord.Cog):
         if next_use > clock.now():
             await ctx.reply(
                 content=f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
-                delete_after=10
+                delete_after=10,
             )
             await ctx.message.delete()
             return
@@ -100,32 +108,29 @@ class LFGCog(discord.Cog):
 
     @discord.slash_command(name="lfg", description="Ask others to join your gaming endeavour")
     async def lfg_slash(
-            self, ctx: ApplicationContext,
-            text: str = option(str, "Optional extra message to append to the LFG ping", default=None),
+        self,
+        ctx: ApplicationContext,
+        text: str = option(str, "Optional extra message to append to the LFG ping", default=None),
     ):
         assert isinstance(ctx.author, discord.Member)
 
         # stop if not in the right channel
         if not ctx.lfg.is_lfg_channel:
-            return await ctx.respond(
-                "This command isn't allowed here!",
-                ephemeral=True
-            )
+            return await ctx.respond("This command isn't allowed here!", ephemeral=True)
 
         next_use = self.next_lfg_use(ctx.author)
 
         # check if user is allowed to use
         if isinstance(next_use, LFGNotAllowed):
             return await ctx.respond(
-                "You don't posses any roles allowing the casting of the LFG command",
-                ephemeral=True
+                "You don't posses any roles allowing the casting of the LFG command", ephemeral=True
             )
 
         # check for cooldown and return if still on cooldown
         if next_use > clock.now():
             return await ctx.respond(
                 f"You are still on cooldown, you can invite to a new game {discord.utils.format_dt(next_use, 'R')}",
-                ephemeral=True
+                ephemeral=True,
             )
 
         missing = missing_channel_perms(ctx.channel, "view_channel", "send_messages")
@@ -157,33 +162,23 @@ class LFGCog(discord.Cog):
             await ctx.delete()
         return None
 
-    @discord.slash_command(
-        description="Reset the looking for game cooldown for everyone or a chosen member"
-    )
+    @discord.slash_command(description="Reset the looking for game cooldown for everyone or a chosen member")
     @discord.default_permissions(administrator=True)
     async def reset_cooldown(
-            self, ctx: ApplicationContext,
-            member: discord.Member = option(
-                discord.Member, "Member whose cooldown should be reset; leave empty to reset all", default=None
-            ),
+        self,
+        ctx: ApplicationContext,
+        member: discord.Member = option(
+            discord.Member, "Member whose cooldown should be reset; leave empty to reset all", default=None
+        ),
     ):
         if member:
             guild_cooldowns = self.cooldowns.get(member.guild.id)
             if guild_cooldowns and member.id in guild_cooldowns:
                 del guild_cooldowns[member.id]
-                await ctx.respond(
-                    f"The cooldown for {member.mention} has been reset!",
-                    ephemeral=True
-                )
+                await ctx.respond(f"The cooldown for {member.mention} has been reset!", ephemeral=True)
             else:
-                await ctx.respond(
-                    "This member isn't on cooldown",
-                    ephemeral=True
-                )
+                await ctx.respond("This member isn't on cooldown", ephemeral=True)
         else:
             self.cooldowns[ctx.guild.id] = {}
-            await ctx.respond(
-                "All cooldowns have been reset!",
-                ephemeral=True
-            )
+            await ctx.respond("All cooldowns have been reset!", ephemeral=True)
             logger.info("cooldowns of %s (%s) reset", ctx.guild.name, ctx.guild.id)

@@ -23,10 +23,19 @@ async def fake():
     gateway = pycord.InteractionGateway(bot)
     gateway.install()
     try:
-        yield type("Fake", (), {"bot": bot, "guild": guild, "cog": cog, "gateway": gateway,
-                                "general": guild.get_channel(fakeguild.GENERAL_ID),
-                                "quiet": guild.get_channel(fakeguild.QUIET_ID),
-                                "admin": guild.get_member(fakeguild.ADMIN_ID),
-                                "player": guild.get_member(fakeguild.PLAYER_ID)})()
+        yield type(
+            "Fake",
+            (),
+            {
+                "bot": bot,
+                "guild": guild,
+                "cog": cog,
+                "gateway": gateway,
+                "general": guild.get_channel(fakeguild.GENERAL_ID),
+                "quiet": guild.get_channel(fakeguild.QUIET_ID),
+                "admin": guild.get_member(fakeguild.ADMIN_ID),
+                "player": guild.get_member(fakeguild.PLAYER_ID),
+            },
+        )()
     finally:
         gateway.uninstall()

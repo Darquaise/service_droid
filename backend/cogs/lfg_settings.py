@@ -2,8 +2,16 @@ import discord
 from discord.ext import commands
 
 from classes import (
-    ServiceDroid, ApplicationContext, Context, transform_time_lfg, LFGNotAllowed, build_command_listing_embed, option,
-    missing_channel_perms, format_missing_perms, role_ping_warning,
+    ServiceDroid,
+    ApplicationContext,
+    Context,
+    transform_time_lfg,
+    LFGNotAllowed,
+    build_command_listing_embed,
+    option,
+    missing_channel_perms,
+    format_missing_perms,
+    role_ping_warning,
 )
 from converters import TIME_UNITS
 
@@ -23,13 +31,9 @@ def generate_settings_embed(ctx: Context | ApplicationContext) -> discord.Embed:
         for role in ctx.g.host_roles.values():
             text += f"\n{role.role.mention}: {role.get_cooldown_text()}"
 
-    embed = discord.Embed(
-        title="LFG Settings",
-        description=text,
-        color=0xffd700
-    )
+    embed = discord.Embed(title="LFG Settings", description=text, color=0xFFD700)
 
-    embed.set_author(name=f'{ctx.guild.name} - ID: {ctx.guild.id}')
+    embed.set_author(name=f"{ctx.guild.name} - ID: {ctx.guild.id}")
     icon = ctx.guild.icon
     if icon:
         embed.set_thumbnail(url=icon.url)
@@ -43,11 +47,11 @@ class LFGSettingsCog(discord.Cog):
     @discord.slash_command(description="Change the amount of cooldown a Host has after a looking for game request")
     @discord.default_permissions(administrator=True)
     async def setting_set_host(
-            self,
-            ctx: ApplicationContext,
-            role: discord.Role = option(discord.Role, "Host role the cooldown applies to"),
-            time_unit: str = option(str, "Of what kind the given time will be", choices=TIME_UNITS),
-            time_amount: int = option(int, "The amount of time"),
+        self,
+        ctx: ApplicationContext,
+        role: discord.Role = option(discord.Role, "Host role the cooldown applies to"),
+        time_unit: str = option(str, "Of what kind the given time will be", choices=TIME_UNITS),
+        time_amount: int = option(int, "The amount of time"),
     ):
         # for some reason this is a string and not int
         time_amount = int(time_amount)
@@ -60,50 +64,43 @@ class LFGSettingsCog(discord.Cog):
 
         if new_time == old_time:
             return await ctx.respond(
-                f"The cooldown has been set to {time_amount} {time_unit}. Nothing changed.",
-                ephemeral=True
+                f"The cooldown has been set to {time_amount} {time_unit}. Nothing changed.", ephemeral=True
             )
         else:
             await ctx.g.set_cooldown(role, time_amount, time_unit)
             if isinstance(new_time, LFGNotAllowed):
                 return await ctx.respond(
                     f"{role.mention} now can't use LFG commands anymore as long as this role is the highest Host Role the member has.",
-                    ephemeral=True
+                    ephemeral=True,
                 )
 
             return await ctx.respond(
-                f"The cooldown for {role.mention} has been set to {time_amount} {time_unit}.",
-                ephemeral=True
+                f"The cooldown for {role.mention} has been set to {time_amount} {time_unit}.", ephemeral=True
             )
 
     @discord.slash_command(description="Removes a Host Role")
     @discord.default_permissions(administrator=True)
     async def setting_remove_host(
-            self, ctx: ApplicationContext,
-            role: discord.Role = option(discord.Role, "Host role to remove"),
+        self,
+        ctx: ApplicationContext,
+        role: discord.Role = option(discord.Role, "Host role to remove"),
     ):
         if role.id not in ctx.g.host_roles.keys():
-            return await ctx.respond(
-                f"{role.mention} is no Host Role!",
-                ephemeral=True
-            )
+            return await ctx.respond(f"{role.mention} is no Host Role!", ephemeral=True)
 
         await ctx.g.remove_host_role(role.id)
 
-        return await ctx.respond(
-            f"{role.mention} isn't a Host Role anymore.",
-            ephemeral=True
-        )
+        return await ctx.respond(f"{role.mention} isn't a Host Role anymore.", ephemeral=True)
 
     @discord.slash_command(
         description="Add LFG Roles to a channel. If the channel wasn't a LFG Channel before it will be made one."
     )
     @discord.default_permissions(administrator=True)
     async def setting_add_lfg(
-            self,
-            ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "Channel that should accept /lfg"),
-            role: discord.Role = option(discord.Role, "Role to be mentioned by /lfg in this channel"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "Channel that should accept /lfg"),
+        role: discord.Role = option(discord.Role, "Role to be mentioned by /lfg in this channel"),
     ):
         missing = missing_channel_perms(channel, "view_channel", "send_messages")
         if missing:
@@ -117,7 +114,7 @@ class LFGSettingsCog(discord.Cog):
         if not added:
             return await ctx.respond(
                 f"{role.mention} is already being mentioned on LFG in {channel.mention}!{warning_suffix}",
-                ephemeral=True
+                ephemeral=True,
             )
 
         if was_present:
@@ -125,31 +122,26 @@ class LFGSettingsCog(discord.Cog):
                 f"{role.mention} has been added to {channel.mention}\n"
                 "Roles now being mentioned in this channel: "
                 f"{' '.join(ctx.lfg.roles_str)}{warning_suffix}",
-                ephemeral=True
+                ephemeral=True,
             )
         return await ctx.respond(
             f"{channel.mention} is now a LFG Channel with the {role.mention} role being mentioned.\n"
             f"To add more use the same command with the same channel selected, but a different role.{warning_suffix}",
-            ephemeral=True
+            ephemeral=True,
         )
 
     @discord.slash_command(description="Remove a LFG Channel.")
     @discord.default_permissions(administrator=True)
     async def setting_remove_lfg(
-            self, ctx: ApplicationContext,
-            channel: discord.TextChannel = option(discord.TextChannel, "LFG channel to remove"),
+        self,
+        ctx: ApplicationContext,
+        channel: discord.TextChannel = option(discord.TextChannel, "LFG channel to remove"),
     ):
         if channel.id in ctx.g.lfg_channels:
             await ctx.g.remove_lfg_channel(channel.id)
-            await ctx.respond(
-                f"{channel.mention} is no longer a LFG Channel.",
-                ephemeral=True
-            )
+            await ctx.respond(f"{channel.mention} is no longer a LFG Channel.", ephemeral=True)
         else:
-            await ctx.respond(
-                f"{channel.mention} is no LFG Channel!",
-                ephemeral=True
-            )
+            await ctx.respond(f"{channel.mention} is no LFG Channel!", ephemeral=True)
 
     @discord.slash_command(description="See how things are set up currently")
     @discord.default_permissions(administrator=True)
@@ -167,6 +159,9 @@ class LFGSettingsCog(discord.Cog):
     @discord.default_permissions(administrator=True)
     async def commands_lfg(self, ctx: ApplicationContext):
         embed = await build_command_listing_embed(
-            self.bot, ctx.guild, "LFG commands", (LFGSettingsCog,),
+            self.bot,
+            ctx.guild,
+            "LFG commands",
+            (LFGSettingsCog,),
         )
         await ctx.respond(embed=embed, ephemeral=True)
